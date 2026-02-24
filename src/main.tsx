@@ -6,7 +6,7 @@ import './index.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter>
+    <BrowserRouter basename="/Kimbalert-africa">
       <App />
     </BrowserRouter>
   </StrictMode>,
@@ -14,7 +14,7 @@ createRoot(document.getElementById('root')!).render(
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch((error) => {
+    navigator.serviceWorker.register('./sw.js').catch((error) => {
       console.error('Service worker registration failed', error);
     });
   });
