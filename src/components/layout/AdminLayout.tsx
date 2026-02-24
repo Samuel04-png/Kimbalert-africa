@@ -16,7 +16,7 @@ export default function AdminLayout() {
           <aside className="hidden w-64 shrink-0 border-r border-slate-700 bg-[#101827] p-4 md:block">
             <div className="mb-6 flex items-center gap-3 px-2">
               <img
-                src="/Kimbalert-africa_logo.png"
+                src={`${import.meta.env.BASE_URL}Kimbalert-africa_logo.png`}
                 alt="KimbAlert Africa"
                 className="h-10 w-10 rounded-[var(--r-md)] object-contain bg-white p-1 shadow-xs"
               />
@@ -78,10 +78,9 @@ function SideLink({
     <NavLink
       to={to}
       className={({ isActive }) =>
-        `flex items-center gap-2 rounded-[var(--r-sm)] px-3 py-2 text-sm font-medium transition-[var(--transition-fast)] ${
-          isActive
-            ? 'bg-brand-orange/15 text-brand-orange'
-            : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
+        `flex items-center gap-2 rounded-[var(--r-sm)] px-3 py-2 text-sm font-medium transition-[var(--transition-fast)] ${isActive
+          ? 'bg-brand-orange/15 text-brand-orange'
+          : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
         }`
       }
     >

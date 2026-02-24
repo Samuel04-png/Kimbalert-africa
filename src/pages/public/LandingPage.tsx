@@ -62,7 +62,7 @@ export default function LandingPage() {
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 md:px-6">
           <div className="flex items-center gap-3">
             <img
-              src="/Kimbalert-africa_logo.png"
+              src={`${import.meta.env.BASE_URL}Kimbalert-africa_logo.png`}
               alt="KimbAlert Africa"
               className="h-10 w-10 rounded-[var(--r-md)] object-contain bg-white p-1 shadow-xs"
             />
@@ -293,7 +293,7 @@ export default function LandingPage() {
           <div className="md:col-span-2">
             <div className="mb-4 flex items-center gap-3">
               <img
-                src="/Kimbalert-africa_logo.png"
+                src={`${import.meta.env.BASE_URL}Kimbalert-africa_logo.png`}
                 alt="KimbAlert Africa"
                 className="h-8 w-8 rounded-[var(--r-sm)] object-contain bg-white p-0.5 shadow-xs"
               />
