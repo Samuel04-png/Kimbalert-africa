@@ -1,0 +1,5 @@
+{
+  "name": "KimbAlert Africa",
+  "description": "A mission-critical, real-time emergency response platform designed to ensure that no child in Africa is ever truly lost.",
+  "requestFramePermissions": ["geolocation"]
+}
