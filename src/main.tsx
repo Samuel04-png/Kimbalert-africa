@@ -6,7 +6,7 @@ import './index.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter basename="/Kimbalert-africa">
+    <BrowserRouter>
       <App />
     </BrowserRouter>
   </StrictMode>,
