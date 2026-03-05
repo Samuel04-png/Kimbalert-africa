@@ -1,4 +1,4 @@
-﻿import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ArrowLeft, MapPin, Phone, Plus, ShieldAlert, Smartphone } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAppContext } from '../../app/AppContext';
@@ -9,7 +9,7 @@ import EmptyState from '../../components/common/EmptyState';
 type ResourceFilter = 'all' | 'police' | 'hospital' | 'school';
 
 export default function CommunityResourcesPage() {
-  const { resources, pushToast } = useAppContext();
+  const { resources, pushToast, addResource } = useAppContext();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<ResourceFilter>('all');
   const [mapMode, setMapMode] = useState(false);
@@ -40,9 +40,18 @@ export default function CommunityResourcesPage() {
       pushToast('warning', 'Name and phone are required');
       return;
     }
+    addResource({
+      type: custom.type as 'police' | 'hospital' | 'school',
+      name: custom.name.trim(),
+      phone: custom.phone.trim(),
+      address: custom.address.trim() || 'South Africa',
+      lat: -26.2041,
+      lng: 28.0473,
+      personal: true,
+    });
     setAddOpen(false);
     setCustom({ name: '', phone: '', type: 'police', address: '' });
-    pushToast('success', 'Custom contact saved locally');
+    pushToast('success', 'Custom contact saved');
   };
 
   return (

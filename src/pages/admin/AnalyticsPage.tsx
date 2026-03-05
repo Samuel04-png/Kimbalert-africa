@@ -1,28 +1,46 @@
-import React, { useMemo, useState } from 'react';
+ï»¿import React, { useMemo, useState } from 'react';
 import { Download } from 'lucide-react';
 import { useAppContext } from '../../app/AppContext';
+import { runAdminOperation } from '../../services/adminOpsService';
 
 export default function AnalyticsPage() {
-  const { analytics, reports, partners, pushToast } = useAppContext();
-  const [range, setRange] = useState('7d');
+  const { analytics, reports, partners, currentUser, addNotification, logAdminAction, pushToast } =
+    useAppContext();
+  const [range, setRange] = useState<'7d' | '30d' | '90d' | 'custom'>('7d');
+
+  const filteredAnalytics = useMemo(() => {
+    if (range === 'custom') return analytics;
+    if (range === '90d') return analytics.slice(-90);
+    if (range === '30d') return analytics.slice(-30);
+    return analytics.slice(-7);
+  }, [analytics, range]);
 
   const totals = useMemo(() => {
-    const alerts = analytics.reduce((acc, item) => acc + item.alerts, 0);
-    const avgResponse = analytics.length ? Math.round(analytics.reduce((acc, item) => acc + item.avgResponseMins, 0) / analytics.length) : 0;
-    const found = analytics.reduce((acc, item) => acc + item.found, 0);
-    const falseReports = analytics.reduce((acc, item) => acc + item.falseReports, 0);
-    const open = analytics.reduce((acc, item) => acc + item.open, 0);
-    const sms = analytics.reduce((acc, item) => acc + item.smsSent, 0);
-    const push = analytics.reduce((acc, item) => acc + item.pushSent, 0);
+    const alerts = filteredAnalytics.reduce((acc, item) => acc + item.alerts, 0);
+    const avgResponse = filteredAnalytics.length
+      ? Math.round(
+          filteredAnalytics.reduce((acc, item) => acc + item.avgResponseMins, 0) /
+            filteredAnalytics.length,
+        )
+      : 0;
+    const found = filteredAnalytics.reduce((acc, item) => acc + item.found, 0);
+    const falseReports = filteredAnalytics.reduce((acc, item) => acc + item.falseReports, 0);
+    const open = filteredAnalytics.reduce((acc, item) => acc + item.open, 0);
+    const sms = filteredAnalytics.reduce((acc, item) => acc + item.smsSent, 0);
+    const push = filteredAnalytics.reduce((acc, item) => acc + item.pushSent, 0);
     const rate = alerts ? Math.round((found / alerts) * 100) : 0;
     return { alerts, avgResponse, found, falseReports, open, sms, push, rate };
-  }, [analytics]);
+  }, [filteredAnalytics]);
 
-  const maxAlerts = Math.max(...analytics.map((item) => item.alerts), 1);
-  const maxResponse = Math.max(...analytics.map((item) => item.avgResponseMins), 1);
+  const maxAlerts = Math.max(...filteredAnalytics.map((item) => item.alerts), 1);
+  const maxResponse = Math.max(...filteredAnalytics.map((item) => item.avgResponseMins), 1);
 
-  const linePoints = analytics
-    .map((day, index) => `${(index / (analytics.length - 1 || 1)) * 100},${100 - (day.avgResponseMins / maxResponse) * 100}`)
+  const linePoints = filteredAnalytics
+    .map(
+      (day, index) =>
+        `${(index / (filteredAnalytics.length - 1 || 1)) * 100},${100 -
+          (day.avgResponseMins / maxResponse) * 100}`,
+    )
     .join(' ');
 
   const locations = useMemo(() => {
@@ -40,6 +58,29 @@ export default function AnalyticsPage() {
 
   const heatmap = locations.map(([area, count]) => ({ area, level: Math.min(4, count) }));
 
+  const handleExport = async () => {
+    const result = await runAdminOperation({
+      type: 'export',
+      title: 'Analytics Export',
+      body: `Analytics export requested for range ${range.toUpperCase()}.`,
+      meta: { source: 'admin-analytics', range },
+    });
+    if (result?.ok) {
+      pushToast('success', 'Analytics report exported');
+      return;
+    }
+
+    logAdminAction('analytics:export', 'Exported analytics report', { range });
+    addNotification({
+      userId: currentUser.id,
+      title: 'Analytics export ready',
+      body: `Report for ${range.toUpperCase()} has been generated.`,
+      type: 'success',
+      route: '/admin/notifications',
+    });
+    pushToast('success', 'Analytics report exported');
+  };
+
   return (
     <div className="min-h-screen bg-[#0b1220] text-slate-100 px-4 pb-24 pt-4 md:px-6 md:pb-8">
       <header className="flex items-start justify-between gap-2">
@@ -47,14 +88,27 @@ export default function AnalyticsPage() {
           <h1 className="font-display text-4xl font-bold">Analytics</h1>
           <p className="text-sm text-slate-400">Operational insight and partner performance</p>
         </div>
-        <button type="button" onClick={() => pushToast('success', 'Analytics report exported')} className="grid h-10 w-10 place-items-center rounded-[var(--r-pill)] border border-slate-700 bg-[#111a2b]">
+        <button
+          type="button"
+          onClick={() => void handleExport()}
+          className="grid h-10 w-10 place-items-center rounded-[var(--r-pill)] border border-slate-700 bg-[#111a2b]"
+        >
           <Download className="h-4 w-4" />
         </button>
       </header>
 
       <div className="mt-3 flex flex-wrap gap-2">
-        {['7d', '30d', '90d', 'custom'].map((item) => (
-          <button key={item} type="button" onClick={() => setRange(item)} className={`rounded-[var(--r-pill)] px-3 py-1.5 text-xs font-semibold ${range === item ? 'bg-brand-orange text-white' : 'border border-slate-700 bg-[#111a2b] text-slate-300'}`}>
+        {(['7d', '30d', '90d', 'custom'] as const).map((item) => (
+          <button
+            key={item}
+            type="button"
+            onClick={() => setRange(item)}
+            className={`rounded-[var(--r-pill)] px-3 py-1.5 text-xs font-semibold ${
+              range === item
+                ? 'bg-brand-orange text-white'
+                : 'border border-slate-700 bg-[#111a2b] text-slate-300'
+            }`}
+          >
             {item.toUpperCase()}
           </button>
         ))}
@@ -72,9 +126,12 @@ export default function AnalyticsPage() {
       <section className="mt-3 rounded-[var(--r-lg)] border border-slate-700 bg-[#111a2b] p-4">
         <h2 className="font-display text-2xl font-bold">Alerts per Day</h2>
         <div className="mt-2 grid grid-cols-7 gap-2 items-end h-32">
-          {analytics.map((day) => (
+          {filteredAnalytics.slice(-7).map((day) => (
             <div key={day.date} className="flex flex-col items-center gap-1">
-              <div className="w-full rounded-[6px] bg-brand-orange" style={{ height: `${(day.alerts / maxAlerts) * 100}%`, minHeight: '10px' }} />
+              <div
+                className="w-full rounded-[6px] bg-brand-orange"
+                style={{ height: `${(day.alerts / maxAlerts) * 100}%`, minHeight: '10px' }}
+              />
               <span className="text-[10px] text-slate-400">{day.date.slice(5)}</span>
             </div>
           ))}
@@ -91,9 +148,16 @@ export default function AnalyticsPage() {
       <section className="mt-3 grid gap-3 md:grid-cols-2">
         <article className="rounded-[var(--r-lg)] border border-slate-700 bg-[#111a2b] p-4">
           <h2 className="font-display text-2xl font-bold">Outcome Mix</h2>
-          <div className="mt-3 mx-auto h-36 w-36 rounded-[var(--r-pill)]" style={{ background: `conic-gradient(#5a7a5c 0 ${foundPct}%, #d63b3b ${foundPct}% ${foundPct + falsePct}%, #f0a11a ${foundPct + falsePct}% 100%)` }} />
+          <div
+            className="mt-3 mx-auto h-36 w-36 rounded-[var(--r-pill)]"
+            style={{
+              background: `conic-gradient(#5a7a5c 0 ${foundPct}%, #d63b3b ${foundPct}% ${
+                foundPct + falsePct
+              }%, #f0a11a ${foundPct + falsePct}% 100%)`,
+            }}
+          />
           <div className="mt-2 text-xs text-slate-400">
-            Found {totals.found} • False {totals.falseReports} • Open {totals.open}
+            Found {totals.found} â€¢ False {totals.falseReports} â€¢ Open {totals.open}
           </div>
         </article>
 
@@ -101,11 +165,19 @@ export default function AnalyticsPage() {
           <h2 className="font-display text-2xl font-bold">Heatmap by Area</h2>
           <div className="mt-2 grid gap-2">
             {heatmap.map((item) => (
-              <div key={item.area} className="grid grid-cols-[1fr_auto] items-center gap-2 rounded-[var(--r-sm)] border border-slate-700 bg-[#0f1625] px-3 py-2">
+              <div
+                key={item.area}
+                className="grid grid-cols-[1fr_auto] items-center gap-2 rounded-[var(--r-sm)] border border-slate-700 bg-[#0f1625] px-3 py-2"
+              >
                 <p className="text-sm">{item.area}</p>
                 <div className="flex gap-1">
                   {Array.from({ length: 4 }).map((_, idx) => (
-                    <span key={idx} className={`h-2 w-2 rounded-[var(--r-pill)] ${idx < item.level ? 'bg-brand-orange' : 'bg-slate-600'}`} />
+                    <span
+                      key={idx}
+                      className={`h-2 w-2 rounded-[var(--r-pill)] ${
+                        idx < item.level ? 'bg-brand-orange' : 'bg-slate-600'
+                      }`}
+                    />
                   ))}
                 </div>
               </div>
@@ -116,10 +188,10 @@ export default function AnalyticsPage() {
 
       <section className="mt-3 rounded-[var(--r-lg)] border border-slate-700 bg-[#111a2b] p-4">
         <h2 className="font-display text-2xl font-bold">Top Locations</h2>
-        <div className="mt-2 space-y-2">
+        <div className="mt-2 grid gap-2">
           {locations.map(([area, count]) => (
             <article key={area} className="rounded-[var(--r-sm)] border border-slate-700 bg-[#0f1625] px-3 py-2 text-sm">
-              {area} • {count} alerts
+              {area} â€¢ {count} alerts
             </article>
           ))}
         </div>
@@ -142,7 +214,11 @@ export default function AnalyticsPage() {
                 <td className="py-2">{partner.name}</td>
                 <td>{partner.type}</td>
                 <td>{partner.active ? 'Yes' : 'No'}</td>
-                <td>{partner.lastNotifiedAt ? new Date(partner.lastNotifiedAt).toLocaleDateString() : '--'}</td>
+                <td>
+                  {partner.lastNotifiedAt
+                    ? new Date(partner.lastNotifiedAt).toLocaleDateString()
+                    : '--'}
+                </td>
               </tr>
             ))}
           </tbody>

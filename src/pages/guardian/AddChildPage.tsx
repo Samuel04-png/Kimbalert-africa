@@ -1,7 +1,9 @@
 ﻿import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Camera, CheckCircle2, ImagePlus, Save } from 'lucide-react';
+import { ArrowLeft, Camera, CheckCircle2, ImagePlus, Save, Upload } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useAppContext } from '../../app/AppContext';
+import { storage, isFirebaseConfigured } from '../../lib/firebase';
 import Chip from '../../components/common/Chip';
 import StepIndicator from '../../components/common/StepIndicator';
 
@@ -14,6 +16,8 @@ export default function AddChildPage() {
   const { currentUser, addChild, pushToast } = useAppContext();
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
+  const [photoFiles, setPhotoFiles] = useState<(File | null)[]>([null, null, null, null, null]);
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>(['', '', '', '', '']);
   const [form, setForm] = useState({
     name: '',
     dob: '',
@@ -46,7 +50,7 @@ export default function AddChildPage() {
     } catch {
       // no-op
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -74,46 +78,64 @@ export default function AddChildPage() {
 
   const submit = async () => {
     setSaving(true);
-    const childId = addChild({
-      guardianId: currentUser.id,
-      name: form.name,
-      dob: form.dob,
-      gender: form.gender,
-      photoUrls: form.photos.filter(Boolean),
-      physicalDescription: form.physicalDescription,
-      medical: {
-        bloodType: form.bloodType,
-        conditions: split(form.conditions),
-        medications: split(form.medications),
-        allergies: split(form.allergies),
-        doctorPhone: form.doctorPhone,
-      },
-      location: {
-        schoolName: form.schoolName,
-        safeZoneLabel: form.safeZoneLabel,
-        address: form.address,
-        lat: form.lat,
-        lng: form.lng,
-      },
-      languages: form.languages,
-      emergencyContacts: [
-        {
-          id: `ec-${Date.now()}`,
-          name: form.emergencyName,
-          relation: 'Guardian Contact',
-          phone: form.emergencyPhone,
-        },
-      ],
-      qrBraceletId: form.qrBraceletId,
-      qrLinked: false,
-      vaultScore: 78,
-    });
+    try {
+      // Upload photos to Firebase Storage if available
+      let uploadedUrls = form.photos.filter(Boolean);
+      if (isFirebaseConfigured && storage) {
+        const childTempId = `child-${Date.now()}`;
+        const uploadPromises = photoFiles.map(async (file, index) => {
+          if (!file) return form.photos[index] || '';
+          const storageRef = ref(storage, `children/${childTempId}/photo-${index}`);
+          await uploadBytes(storageRef, file);
+          return await getDownloadURL(storageRef);
+        });
+        uploadedUrls = (await Promise.all(uploadPromises)).filter(Boolean);
+      }
 
-    localStorage.removeItem(draftKey);
-    await new Promise((resolve) => window.setTimeout(resolve, 550));
-    setSaving(false);
-    pushToast('success', 'Child profile saved', 'Great work. Vault profile is now active.');
-    navigate(`/guardian/children/${childId}`);
+      const childId = addChild({
+        guardianId: currentUser.id,
+        name: form.name,
+        dob: form.dob,
+        gender: form.gender,
+        photoUrls: uploadedUrls,
+        physicalDescription: form.physicalDescription,
+        medical: {
+          bloodType: form.bloodType,
+          conditions: split(form.conditions),
+          medications: split(form.medications),
+          allergies: split(form.allergies),
+          doctorPhone: form.doctorPhone,
+        },
+        location: {
+          schoolName: form.schoolName,
+          safeZoneLabel: form.safeZoneLabel,
+          address: form.address,
+          lat: form.lat,
+          lng: form.lng,
+        },
+        languages: form.languages,
+        emergencyContacts: [
+          {
+            id: `ec-${Date.now()}`,
+            name: form.emergencyName,
+            relation: 'Guardian Contact',
+            phone: form.emergencyPhone,
+          },
+        ],
+        qrBraceletId: form.qrBraceletId,
+        qrLinked: false,
+        vaultScore: 78,
+      });
+
+      localStorage.removeItem(draftKey);
+      pushToast('success', 'Child profile saved', 'Great work. Vault profile is now active.');
+      navigate(`/guardian/children/${childId}`);
+    } catch (error) {
+      console.error('Failed to save child profile', error);
+      pushToast('error', 'Save failed', 'Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -173,25 +195,72 @@ export default function AddChildPage() {
           <StepHeadline icon="📷" title="Photos" subtitle="Clear front-facing photos improve recovery speed" />
           <p className="text-xs text-text-muted">Guide: use bright light, clear face, and recent clothing context.</p>
           <div className="grid grid-cols-2 gap-2">
-            {form.photos.map((photo, index) => (
-              <label key={index} className="rounded-[var(--r-md)] border border-slate-200 bg-bg-primary p-2 block">
+            {photoPreviews.map((preview, index) => (
+              <label key={index} className="rounded-[var(--r-md)] border border-slate-200 bg-bg-primary p-2 block cursor-pointer">
                 <span className="text-[11px] font-semibold text-text-muted">Photo slot {index + 1}</span>
                 <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (!file) return;
+                    const nextFiles = [...photoFiles];
+                    nextFiles[index] = file;
+                    setPhotoFiles(nextFiles);
+                    const nextPreviews = [...photoPreviews];
+                    nextPreviews[index] = URL.createObjectURL(file);
+                    setPhotoPreviews(nextPreviews);
+                  }}
+                />
+                <div className="mt-2 h-20 rounded-[var(--r-sm)] border border-dashed border-slate-300 bg-white/70 grid place-items-center overflow-hidden">
+                  {preview ? (
+                    <img src={preview} alt={`slot-${index + 1}`} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex flex-col items-center gap-1 text-slate-400">
+                      <Upload className="h-4 w-4" />
+                      <span className="text-[10px]">Tap to upload</span>
+                    </div>
+                  )}
+                </div>
+                {preview ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      const nextFiles = [...photoFiles];
+                      nextFiles[index] = null;
+                      setPhotoFiles(nextFiles);
+                      const nextPreviews = [...photoPreviews];
+                      nextPreviews[index] = '';
+                      setPhotoPreviews(nextPreviews);
+                    }}
+                    className="mt-1 text-[10px] text-red-500 font-semibold"
+                  >
+                    Remove
+                  </button>
+                ) : null}
+              </label>
+            ))}
+          </div>
+          <details className="text-xs text-text-muted">
+            <summary className="cursor-pointer font-semibold text-brand-orange">Or paste image URLs</summary>
+            <div className="mt-2 space-y-1">
+              {form.photos.map((photo, index) => (
+                <input
+                  key={index}
                   value={photo}
                   onChange={(event) => {
                     const next = [...form.photos];
                     next[index] = event.target.value;
                     setForm((prev) => ({ ...prev, photos: next }));
                   }}
-                  placeholder="Paste image URL"
-                  className="mt-2 w-full rounded-[var(--r-sm)] border border-slate-200 bg-white px-2 py-1.5 text-xs"
+                  placeholder={`URL for photo ${index + 1}`}
+                  className="w-full rounded-[var(--r-sm)] border border-slate-200 bg-white px-2 py-1.5 text-xs"
                 />
-                <div className="mt-2 h-20 rounded-[var(--r-sm)] border border-dashed border-slate-300 bg-white/70 grid place-items-center overflow-hidden">
-                  {photo ? <img src={photo} alt={`slot-${index + 1}`} className="h-full w-full object-cover" /> : <ImagePlus className="h-5 w-5 text-slate-400" />}
-                </div>
-              </label>
-            ))}
-          </div>
+              ))}
+            </div>
+          </details>
         </section>
       ) : null}
 

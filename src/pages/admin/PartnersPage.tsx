@@ -1,29 +1,30 @@
-﻿import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Download, Plus, Send } from 'lucide-react';
 import { useAppContext } from '../../app/AppContext';
 import BottomSheet from '../../components/common/BottomSheet';
 import ToggleSwitch from '../../components/common/ToggleSwitch';
 import { PartnerNode } from '../../types';
+import { runAdminOperation } from '../../services/adminOpsService';
 
 export default function PartnersPage() {
-  const { partners, pushToast } = useAppContext();
-  const [localPartners, setLocalPartners] = useState(partners);
+  const { partners, currentUser, addNotification, pushToast, addPartner, updatePartner, logAdminAction } =
+    useAppContext();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [form, setForm] = useState({ name: '', type: 'police', phone: '', location: '' });
 
   const groups = useMemo<Array<{ key: PartnerNode['type']; items: PartnerNode[] }>>(
     () => [
-      { key: 'police', items: localPartners.filter((item) => item.type === 'police') },
-      { key: 'hospital', items: localPartners.filter((item) => item.type === 'hospital') },
-      { key: 'school', items: localPartners.filter((item) => item.type === 'school') },
-      { key: 'media', items: localPartners.filter((item) => item.type === 'media') },
-      { key: 'community', items: localPartners.filter((item) => item.type === 'community') },
+      { key: 'police', items: partners.filter((item) => item.type === 'police') },
+      { key: 'hospital', items: partners.filter((item) => item.type === 'hospital') },
+      { key: 'school', items: partners.filter((item) => item.type === 'school') },
+      { key: 'media', items: partners.filter((item) => item.type === 'media') },
+      { key: 'community', items: partners.filter((item) => item.type === 'community') },
     ],
-    [localPartners],
+    [partners],
   );
 
   const setActive = (id: string, active: boolean) => {
-    setLocalPartners((prev) => prev.map((item) => (item.id === id ? { ...item, active } : item)));
+    updatePartner(id, { active });
   };
 
   const health = (date?: string) => {
@@ -39,21 +40,52 @@ export default function PartnersPage() {
       pushToast('warning', 'Name and phone are required');
       return;
     }
-    setLocalPartners((prev) => [
-      {
-        id: `pn-${Date.now()}`,
-        name: form.name,
-        type: form.type as PartnerNode['type'],
-        contactPhone: form.phone,
-        location: form.location || 'Not set',
-        active: true,
-        notificationHistory: [],
-      },
-      ...prev,
-    ]);
+    addPartner({
+      name: form.name,
+      type: form.type as PartnerNode['type'],
+      contactPhone: form.phone,
+      location: form.location || 'Not set',
+      active: true,
+      notificationHistory: [],
+    });
     setForm({ name: '', type: 'police', phone: '', location: '' });
     setSheetOpen(false);
     pushToast('success', 'Partner added');
+  };
+
+  const notifyPartners = async (partnerIds: string[], label: string) => {
+    if (!partnerIds.length) {
+      pushToast('warning', 'No partners available for this action');
+      return;
+    }
+
+    const result = await runAdminOperation({
+      type: 'notify_partners',
+      partnerIds,
+      title: `Partner notification: ${label}`,
+      body: `Dispatch notification sent to ${label}.`,
+      meta: { source: 'admin-partners', partnerCount: partnerIds.length },
+    });
+
+    if (result?.ok) {
+      pushToast('success', `Test alert sent to ${label}`);
+      return;
+    }
+
+    const notifiedAt = new Date().toISOString();
+    partnerIds.forEach((id) => updatePartner(id, { lastNotifiedAt: notifiedAt }));
+    logAdminAction('partners:notify', `Sent partner notification to ${label}`, {
+      partnerCount: partnerIds.length,
+      recipientCount: partnerIds.length,
+    });
+    addNotification({
+      userId: currentUser.id,
+      title: 'Partners notified',
+      body: `Dispatch sent to ${partnerIds.length} partner node(s).`,
+      type: 'success',
+      route: '/admin/notifications',
+    });
+    pushToast('success', `Test alert sent to ${label}`);
   };
 
   return (
@@ -87,7 +119,7 @@ export default function PartnersPage() {
             <h2 className="font-display text-2xl font-bold capitalize">{key}</h2>
             <button
               type="button"
-              onClick={() => pushToast('info', `Test alert sent to all ${key} partners`)}
+              onClick={() => void notifyPartners(items.map((partner) => partner.id), `${key} partners`)}
               className="rounded-[var(--r-pill)] border border-slate-700 bg-[#0f1625] px-3 py-1.5 text-xs font-semibold"
             >
               Bulk notify {key}
@@ -119,7 +151,7 @@ export default function PartnersPage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => pushToast('success', `Test alert sent to ${partner.name}`)}
+                        onClick={() => void notifyPartners([partner.id], partner.name)}
                         className="rounded-[var(--r-pill)] border border-slate-700 bg-[#111a2b] px-3 py-1 text-[11px] font-semibold"
                       >
                         <Send className="mr-1 inline h-3.5 w-3.5" /> Send test alert

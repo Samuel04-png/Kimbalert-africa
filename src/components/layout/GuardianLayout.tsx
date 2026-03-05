@@ -1,8 +1,28 @@
 import React, { useEffect, useState } from 'react';
 import { AlertTriangle, Bell, Home, Smartphone, UserCircle2, Users2 } from 'lucide-react';
-import { Link, NavLink, Outlet, matchPath, useLocation } from 'react-router-dom';
+import { Link, Navigate, NavLink, Outlet, matchPath, useLocation } from 'react-router-dom';
+import { useAppContext } from '../../app/AppContext';
 import PhoneFrame from './PhoneFrame';
 import ToastHost from '../common/ToastHost';
+import { auth, isFirebaseConfigured } from '../../lib/firebase';
+import { useTranslation } from 'react-i18next';
+
+const LanguageSwitcher = () => {
+  const { i18n } = useTranslation();
+  return (
+    <div className="fixed top-4 right-4 z-50">
+      <select
+        value={i18n.language}
+        onChange={(e) => i18n.changeLanguage(e.target.value)}
+        className="bg-white/80 backdrop-blur-md text-brand-orange border border-brand-orange/20 rounded-full px-3 py-1.5 text-xs font-bold shadow-sm outline-none focus:ring-2 focus:ring-brand-orange/50 appearance-none cursor-pointer"
+      >
+        <option value="en">EN</option>
+        <option value="fr">FR</option>
+        <option value="sw">SW</option>
+      </select>
+    </div>
+  );
+};
 
 const hiddenNavPatterns = [
   '/guardian/children/add',
@@ -20,15 +40,38 @@ const hiddenNavPatterns = [
 ];
 
 export default function GuardianLayout() {
+  const { currentUser } = useAppContext();
   const location = useLocation();
   const hideNav = hiddenNavPatterns.some((pattern) => matchPath(pattern, location.pathname));
   const mobileAllowed = useGuardianMobileGate();
+  const sessionUid = auth?.currentUser?.uid ?? null;
+  const waitingForHydration =
+    isFirebaseConfigured && Boolean(sessionUid) && currentUser.id !== sessionUid;
+
+  if (isFirebaseConfigured && !auth?.currentUser) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (waitingForHydration) {
+    return (
+      <PhoneFrame>
+        <div className="screen min-h-screen grid place-items-center px-6 text-center">
+          <p className="type-muted">Loading your guardian profile...</p>
+        </div>
+      </PhoneFrame>
+    );
+  }
+
+  if (currentUser.role === 'admin') {
+    return <Navigate to="/admin/dashboard" replace />;
+  }
 
   return (
     <PhoneFrame>
       <div className="guardian-app">
         {mobileAllowed ? (
           <>
+            <LanguageSwitcher />
             <div className="screen screen-content bg-[radial-gradient(circle_at_8%_4%,#fff8f2,transparent_36%),radial-gradient(circle_at_92%_96%,#ffeada,transparent_34%)] px-4 pb-28 pt-3">
               <Outlet />
             </div>

@@ -11,6 +11,7 @@ export interface UserBase {
   role: Role;
   fullName: string;
   phone: string;
+  phoneNormalized?: string;
   email: string;
   nationalId?: string;
   location?: string;
@@ -22,6 +23,7 @@ export interface GuardianUser extends UserBase {
   role: 'guardian';
   childrenCount: number;
   verified: boolean;
+  suspicious?: boolean;
 }
 
 export interface AdminUser extends UserBase {
@@ -157,6 +159,7 @@ export interface ResourceContact {
   lat: number;
   lng: number;
   personal?: boolean;
+  createdBy?: string;
 }
 
 export interface PartnerNode {
@@ -205,6 +208,37 @@ export interface ToastMessage {
   type: NotificationType;
 }
 
+export interface SystemConfig {
+  id: string;
+  defaultRadiusKm: number;
+  expansionRateKmPerHour: number;
+  smsGatewayEnabled: boolean;
+  pushServiceEnabled: boolean;
+  branding: {
+    appName: string;
+    color: string;
+  };
+  updatedAt: string;
+  updatedBy: string;
+}
+
+export interface AdminInvite {
+  id: string;
+  email: string;
+  status: 'pending' | 'accepted' | 'expired' | 'cancelled';
+  invitedBy: string;
+  invitedAt: string;
+}
+
+export interface AdminActionLog {
+  id: string;
+  type: string;
+  summary?: string;
+  actorId: string;
+  createdAt: string;
+  meta?: Record<string, string | number | boolean | null>;
+}
+
 export interface AppContextState {
   currentUser: GuardianUser | AdminUser;
   guardians: GuardianUser[];
@@ -217,6 +251,9 @@ export interface AppContextState {
   notifications: NotificationItem[];
   analytics: AnalyticsDay[];
   tips: CommunityTip[];
+  systemConfig: SystemConfig;
+  adminInvites: AdminInvite[];
+  adminActions: AdminActionLog[];
   toasts: ToastMessage[];
   addChild: (child: Omit<ChildProfile, 'id' | 'createdAt' | 'lastUpdated' | 'age'>) => string;
   updateChild: (id: string, updates: Partial<ChildProfile>) => void;
@@ -228,7 +265,23 @@ export interface AppContextState {
   addNotification: (item: Omit<NotificationItem, 'id' | 'createdAt' | 'read'>) => void;
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: () => void;
+  addPartner: (
+    partner: Omit<PartnerNode, 'id' | 'notificationHistory'> & { notificationHistory?: string[] },
+  ) => string;
+  updatePartner: (id: string, updates: Partial<PartnerNode>) => void;
+  updateGuardian: (id: string, updates: Partial<GuardianUser>) => void;
+  addResource: (resource: Omit<ResourceContact, 'id'>) => string;
+  updateResource: (id: string, updates: Partial<ResourceContact>) => void;
+  saveSystemConfig: (updates: Partial<SystemConfig>) => void;
+  createAdminInvite: (email: string) => string;
+  logAdminAction: (
+    type: string,
+    summary?: string,
+    meta?: Record<string, string | number | boolean | null>,
+  ) => string;
   pushToast: (type: NotificationType, title: string, message?: string) => void;
   dismissToast: (id: string) => void;
   setCurrentUser: (user: GuardianUser | AdminUser) => void;
+  updateCurrentUserProfile: (updates: Partial<GuardianUser | AdminUser>) => void;
+  signOutUser: () => Promise<void>;
 }

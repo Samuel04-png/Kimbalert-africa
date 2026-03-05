@@ -1,0 +1,69 @@
+query ListAllMissingChildReports @auth(level: PUBLIC, insecureReason: "This operation is safe to expose to the public as it lists missing child reports.") {
+  missingChildReports {
+    id
+    childName
+    age
+    gender
+    lastSeenLocation
+    reportDate
+    status
+    photoUrl
+    description
+  }
+}
+
+query GetMyMissingChildReports @auth(level: USER, insecureReason: "This operation is safe to expose to all logged in users.") {
+  missingChildReports(where: {reporter: {id_expr: "auth.uid"}}) {
+    id
+    childName
+    age
+    gender
+    lastSeenLocation
+    reportDate
+    status
+    photoUrl
+    description
+    contactInfo
+    reporterNotes
+    alerts_on_missingChildReport {
+      id
+      alertType
+      message
+      createdAt
+    }
+    tips_on_missingChildReport {
+      id
+      location
+      description
+      tipDate
+    }
+  }
+}
+
+mutation CreateMissingChildReport($childName: String!, $age: Int!, $gender: String!, $lastSeenLocation: String!, $reportDate: Date!, $status: String!, $photoUrl: String!, $description: String, $contactInfo: String, $reporterNotes: String) @auth(level: USER) {
+  missingChildReport_insert(data: {
+    reporterId_expr: "auth.uid",
+    childName: $childName,
+    age: $age,
+    gender: $gender,
+    lastSeenLocation: $lastSeenLocation,
+    reportDate: $reportDate,
+    status: $status,
+    photoUrl: $photoUrl,
+    description: $description,
+    contactInfo: $contactInfo,
+    reporterNotes: $reporterNotes
+  })
+}
+
+mutation CreateTip($missingChildReportId: UUID!, $location: String!, $description: String!, $tipDate: Date!, $contactInfo: String, $photoUrl: String) @auth(level: USER) {
+  tip_insert(data: {
+    tipsterId_expr: "auth.uid",
+    missingChildReportId: $missingChildReportId,
+    location: $location,
+    description: $description,
+    tipDate: $tipDate,
+    contactInfo: $contactInfo,
+    photoUrl: $photoUrl
+  })
+}

@@ -1,0 +1,49 @@
+type User @table {
+  displayName: String!
+  email: String!
+  createdAt: Timestamp!
+  userType: String!
+  phoneNumber: String
+  region: String
+  profilePictureUrl: String
+}
+
+type MissingChildReport @table {
+  reporter: User!
+  childName: String!
+  age: Int!
+  gender: String!
+  lastSeenLocation: String!
+  reportDate: Date!
+  status: String!
+  photoUrl: String!
+  description: String
+  contactInfo: String
+  reporterNotes: String
+}
+
+type Alert @table {
+  missingChildReport: MissingChildReport!
+  alertType: String!
+  createdAt: Timestamp!
+  message: String!
+  regionTarget: String
+  sharingLink: String
+}
+
+type Tip @table {
+  tipster: User
+  missingChildReport: MissingChildReport!
+  tipDate: Date!
+  location: String!
+  description: String!
+  contactInfo: String
+  photoUrl: String
+}
+
+type SubscriptionType @table {
+  user: User!
+  region: String!
+  alertPreference: String!
+  keywords: [String]
+}

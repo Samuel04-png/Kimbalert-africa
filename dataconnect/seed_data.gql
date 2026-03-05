@@ -1,0 +1,74 @@
+mutation SeedData @transaction @auth(level: USER, insecureReason: "Seed data operations are for authenticated users only during development or initial setup.") {
+  user1: user_insert(data: {
+    id: "a1a1a1a1-b2b2-c3c3-d4d4-e5e5e5e5e5e1",
+    displayName: "Alice Smith",
+    email: "alice.smith@example.com",
+    createdAt: "2023-01-01T10:00:00Z",
+    userType: "Reporter",
+    phoneNumber: "+254712345678",
+    region: "Nairobi",
+    profilePictureUrl: "https://example.com/alice.jpg"
+  })
+  user2: user_insert(data: {
+    id: "a1a1a1a1-b2b2-c3c3-d4d4-e5e5e5e5e5e2",
+    displayName: "Bob Johnson",
+    email: "bob.johnson@example.com",
+    createdAt: "2023-01-02T11:00:00Z",
+    userType: "Tipster",
+    phoneNumber: "+254723456789",
+    region: "Mombasa",
+    profilePictureUrl: "https://example.com/bob.jpg"
+  })
+  missingChildReport1: missingChildReport_insert(data: {
+    id: "f6f6f6f6-g7g7-h8h8-i9i9-j0j0j0j0j0j1",
+    reporterId: "a1a1a1a1-b2b2-c3c3-d4d4-e5e5e5e5e5e1",
+    childName: "Emily White",
+    age: 7,
+    gender: "Female",
+    lastSeenLocation: "Central Park, Nairobi",
+    reportDate: "2024-03-01",
+    status: "Active",
+    photoUrl: "https://example.com/emily.jpg",
+    description: "Wearing a red dress and blue shoes.",
+    contactInfo: "Reporter: Alice Smith (+254712345678)"
+  })
+  missingChildReport2: missingChildReport_insert(data: {
+    id: "f6f6f6f6-g7g7-h8h8-i9i9-j0j0j0j0j0j2",
+    reporterId: "a1a1a1a1-b2b2-c3c3-d4d4-e5e5e5e5e5e1",
+    childName: "Daniel Green",
+    age: 10,
+    gender: "Male",
+    lastSeenLocation: "City Mall, Mombasa",
+    reportDate: "2024-03-05",
+    status: "Active",
+    photoUrl: "https://example.com/daniel.jpg",
+    description: "Last seen with a blue backpack.",
+    contactInfo: "Reporter: Alice Smith (+254712345678)"
+  })
+  alert1: alert_insert(data: {
+    id: "k1k1k1k1-l2l2-m3m3-n4n4-o5o5o5o5o5o1",
+    missingChildReportId: "f6f6f6f6-g7g7-h8h8-i9i9-j0j0j0j0j0j1",
+    alertType: "SMS",
+    createdAt: "2024-03-01T12:00:00Z",
+    message: "Missing child alert: Emily White, 7, female, last seen Central Park. Wearing red dress. Contact +254712345678. #MissingEmily",
+    regionTarget: "Nairobi",
+    sharingLink: "https://example.com/alert/emily"
+  })
+  tip1: tip_insert(data: {
+    id: "p1p1p1p1-q2q2-r3r3-s4s4-t5t5t5t5t5t1",
+    missingChildReportId: "f6f6f6f6-g7g7-h8h8-i9i9-j0j0j0j0j0j1",
+    tipsterId: "a1a1a1a1-b2b2-c3c3-d4d4-e5e5e5e5e5e2",
+    tipDate: "2024-03-02",
+    location: "Near ABC Supermarket, Nairobi",
+    description: "Saw a girl resembling Emily with an older woman. Headed towards the bus station.",
+    contactInfo: "Bob Johnson (+254723456789)",
+    photoUrl: "https://example.com/tip_photo1.jpg"
+  })
+  subscriptionType1: subscriptionType_insert(data: {
+    id: "u1u1u1u1-v2v2-w3w3-x4x4-y5y5y5y5y5y1",
+    userId: "a1a1a1a1-b2b2-c3c3-d4d4-e5e5e5e5e5e1",
+    region: "Nairobi",
+    alertPreference: "SMS, Email",
+    keywords: ["Emily White", "Central Park"]
+  })
+}

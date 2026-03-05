@@ -9,12 +9,23 @@ const languages = ['English', 'isiZulu', 'isiXhosa', 'Afrikaans', 'Sesotho', 'Sw
 
 export default function ProfileCompletionPage() {
   const navigate = useNavigate();
-  const { pushToast } = useAppContext();
+  const { currentUser, pushToast, updateCurrentUserProfile } = useAppContext();
   const [selectedLanguage, setSelectedLanguage] = useState('English');
   const [form, setForm] = useState({ location: '', emergencyName: '', emergencyPhone: '' });
 
   const complete = (event: React.FormEvent) => {
     event.preventDefault();
+    updateCurrentUserProfile({
+      location: form.location || currentUser.location || 'South Africa',
+    });
+    localStorage.setItem(
+      'guardian_preferences',
+      JSON.stringify({
+        language: selectedLanguage,
+        emergencyName: form.emergencyName,
+        emergencyPhone: form.emergencyPhone,
+      }),
+    );
     pushToast('success', 'Profile completed', 'Guardian onboarding is ready.');
     navigate('/guardian/home');
   };

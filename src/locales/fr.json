@@ -1,0 +1,40 @@
+{
+    "nav": {
+        "home": "Accueil",
+        "children": "Mes Enfants",
+        "report": "Signaler",
+        "activity": "Communauté",
+        "profile": "Profil",
+        "resources": "Ressources",
+        "logout": "Déconnexion"
+    },
+    "home": {
+        "welcome": "Bon retour",
+        "active_alerts": "Alertes Actives",
+        "tips_submitted": "Contexte Soumis",
+        "community_alerts": "Alertes Communautaires",
+        "report_emergency": "Signaler Urgence",
+        "manage_children": "Gérer les Enfants"
+    },
+    "alert": {
+        "report_missing_child": "Signaler un Enfant Disparu",
+        "select_child": "Qui a disparu?",
+        "last_seen": "Dernière Position Connue",
+        "outfit": "Que portaient-ils?",
+        "context": "Contexte ou Circonstances",
+        "submit": "Diffuser l'Alerte Maintenant"
+    },
+    "status": {
+        "active": "Recherche Active",
+        "resolved": "Retrouvé, En Sécurité",
+        "pending": "En Cours d'Examen",
+        "radius": "Rayon de Recherche"
+    },
+    "common": {
+        "save": "Enregistrer les Modifications",
+        "cancel": "Annuler",
+        "loading": "Chargement...",
+        "error": "Une erreur est survenue",
+        "success": "Succès"
+    }
+}

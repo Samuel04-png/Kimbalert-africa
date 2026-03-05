@@ -1,4 +1,4 @@
-﻿import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ChevronRight, Globe2, LogOut, Shield, Trash2, UserCircle2, UserPen } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../app/AppContext';
@@ -11,10 +11,18 @@ const languages = ['English', 'French', 'Swahili', 'Yoruba', 'Zulu'];
 
 export default function GuardianProfilePage() {
   const navigate = useNavigate();
-  const { currentUser, children, reports, pushToast } = useAppContext();
-  const [language, setLanguage] = useState('English');
-  const [sms, setSms] = useState(true);
-  const [whatsApp, setWhatsApp] = useState(true);
+  const { currentUser, children, reports, pushToast, signOutUser } = useAppContext();
+  const prefsRaw = localStorage.getItem('guardian_preferences');
+  const prefs = prefsRaw
+    ? (JSON.parse(prefsRaw) as {
+        language?: string;
+        sms?: boolean;
+        whatsApp?: boolean;
+      })
+    : null;
+  const [language, setLanguage] = useState(prefs?.language || 'English');
+  const [sms, setSms] = useState(prefs?.sms ?? true);
+  const [whatsApp, setWhatsApp] = useState(prefs?.whatsApp ?? true);
   const [sheet, setSheet] = useState<'logout' | 'delete' | 'prefs' | null>(null);
 
   const myChildren = useMemo(() => children.filter((child) => child.guardianId === currentUser.id), [children, currentUser.id]);
@@ -51,8 +59,30 @@ export default function GuardianProfilePage() {
     [myChildren, myReports],
   );
 
-  const logout = () => {
+  useEffect(() => {
+    localStorage.setItem(
+      'guardian_preferences',
+      JSON.stringify({
+        ...prefs,
+        language,
+        sms,
+        whatsApp,
+      }),
+    );
+  }, [language, prefs, sms, whatsApp]);
+
+  const logout = async () => {
     setSheet(null);
+    localStorage.setItem(
+      'guardian_preferences',
+      JSON.stringify({
+        ...prefs,
+        language,
+        sms,
+        whatsApp,
+      }),
+    );
+    await signOutUser();
     navigate('/login');
   };
 
@@ -163,7 +193,7 @@ export default function GuardianProfilePage() {
         <p className="text-sm text-text-muted">Are you sure you want to log out of your guardian account?</p>
         <div className="mt-4 grid grid-cols-2 gap-2">
           <button type="button" onClick={() => setSheet(null)} className="rounded-[var(--r-pill)] border border-slate-300 bg-white py-2.5 text-sm font-semibold text-text-main">Cancel</button>
-          <button type="button" onClick={logout} className="rounded-[var(--r-pill)] bg-red-500 py-2.5 text-sm font-bold text-white">Log Out</button>
+          <button type="button" onClick={() => void logout()} className="rounded-[var(--r-pill)] bg-red-500 py-2.5 text-sm font-bold text-white">Log Out</button>
         </div>
       </BottomSheet>
 
@@ -221,4 +251,6 @@ function MenuRow({ label, onClick }: { label: string; onClick: () => void }) {
     </button>
   );
 }
+
+
 

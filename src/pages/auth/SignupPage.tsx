@@ -1,9 +1,13 @@
 import React, { useMemo, useState } from 'react';
 import { ArrowLeft, ArrowRight, CheckCircle2, Lock, Shield, User } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
 import PhoneFrame from '../../components/layout/PhoneFrame';
 import BottomSheet from '../../components/common/BottomSheet';
 import StepIndicator from '../../components/common/StepIndicator';
+import { auth, db, isFirebaseConfigured } from '../../lib/firebase';
+import { useAppContext } from '../../app/AppContext';
 
 const countryCodes = [
   { code: 'ZA', dial: '+27', name: 'South Africa' },
@@ -30,8 +34,15 @@ function passwordScore(value: string) {
   return score;
 }
 
+function toE164(dialCode: string, value: string) {
+  const digits = value.replace(/\D/g, '');
+  const normalizedDial = dialCode.startsWith('+') ? dialCode : `+${dialCode}`;
+  return `${normalizedDial}${digits.startsWith('0') ? digits.slice(1) : digits}`;
+}
+
 export default function SignupPage() {
   const navigate = useNavigate();
+  const { setCurrentUser, pushToast } = useAppContext();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [showCountrySheet, setShowCountrySheet] = useState(false);
@@ -86,10 +97,79 @@ export default function SignupPage() {
     event.preventDefault();
     if (!validateStepTwo()) return;
     setLoading(true);
-    localStorage.setItem('pending_phone', `${form.country.dial} ${form.phone}`);
-    localStorage.setItem('pending_role', form.role);
-    await new Promise((resolve) => window.setTimeout(resolve, 700));
-    navigate('/verify');
+    const fullPhone = `${form.country.dial} ${form.phone}`.trim().replace(/\s+/g, ' ');
+    const e164Phone = toE164(form.country.dial, form.phone);
+
+    try {
+      if (isFirebaseConfigured && auth && db && form.email.trim()) {
+        // Create Firebase Auth user with email + password
+        const credential = await createUserWithEmailAndPassword(
+          auth,
+          form.email.trim(),
+          form.password,
+        );
+        const { user } = credential;
+
+        // Build guardian profile
+        const guardianProfile = {
+          id: user.uid,
+          role: form.role as 'guardian' | 'admin',
+          fullName: form.fullName,
+          phone: fullPhone,
+          phoneNormalized: e164Phone,
+          email: form.email.trim(),
+          nationalId: form.nationalId,
+          location: 'South Africa',
+          joinedAt: new Date().toISOString(),
+          childrenCount: 0,
+          verified: true,
+        };
+
+        // Write profile to Firestore
+        const collectionName = form.role === 'admin' ? 'admins' : 'guardians';
+        await setDoc(doc(db, collectionName, user.uid), guardianProfile, { merge: true });
+
+        // Set as current user
+        setCurrentUser(guardianProfile as any);
+        pushToast('success', 'Account created', 'Welcome to KimbAlert Africa!');
+        navigate('/auth/success');
+        return;
+      }
+
+      // Fallback: store in localStorage and navigate to OTP verify (offline or phone-only flow)
+      localStorage.setItem('pending_phone', fullPhone);
+      localStorage.setItem('pending_phone_e164', e164Phone);
+      localStorage.setItem('pending_role', form.role);
+      localStorage.setItem('pending_auth_mode', 'signup');
+      localStorage.setItem(
+        'pending_profile',
+        JSON.stringify({
+          fullName: form.fullName,
+          phone: fullPhone,
+          phoneNormalized: e164Phone,
+          email: form.email,
+          nationalId: form.nationalId,
+          role: form.role,
+          password: form.password,
+          location: 'South Africa',
+        }),
+      );
+      await new Promise((resolve) => window.setTimeout(resolve, 700));
+      navigate('/verify');
+    } catch (error: unknown) {
+      const code = (error as { code?: string })?.code ?? '';
+      if (code.includes('email-already-in-use')) {
+        pushToast('error', 'Email already registered', 'Try logging in instead.');
+      } else if (code.includes('weak-password')) {
+        pushToast('error', 'Password too weak', 'Use at least 6 characters.');
+      } else if (code.includes('invalid-email')) {
+        pushToast('error', 'Invalid email', 'Please check your email address.');
+      } else {
+        pushToast('error', 'Signup failed', 'Please try again.');
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -185,17 +265,16 @@ export default function SignupPage() {
                   {[1, 2, 3, 4].map((item) => (
                     <span
                       key={item}
-                      className={`h-2 rounded-[var(--r-pill)] ${
-                        item <= strength
-                          ? item <= 1
-                            ? 'bg-red-500'
-                            : item <= 2
-                              ? 'bg-amber-500'
-                              : item <= 3
-                                ? 'bg-brand-orange'
-                                : 'bg-brand-green'
-                          : 'bg-slate-200'
-                      }`}
+                      className={`h-2 rounded-[var(--r-pill)] ${item <= strength
+                        ? item <= 1
+                          ? 'bg-red-500'
+                          : item <= 2
+                            ? 'bg-amber-500'
+                            : item <= 3
+                              ? 'bg-brand-orange'
+                              : 'bg-brand-green'
+                        : 'bg-slate-200'
+                        }`}
                     />
                   ))}
                 </div>

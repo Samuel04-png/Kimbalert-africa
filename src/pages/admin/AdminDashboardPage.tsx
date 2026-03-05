@@ -3,19 +3,30 @@ import { Activity, Bell, Download, Megaphone, Plus } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../app/AppContext';
 import Watermark from '../../components/common/Watermark';
+import { runAdminOperation } from '../../services/adminOpsService';
+import { MapContainer, TileLayer, Marker, Popup, Circle } from 'react-leaflet';
+import L from 'leaflet';
+
+// Fix leaflet default icon issue in Vite
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+});
 
 export default function AdminDashboardPage() {
   const navigate = useNavigate();
-  const { reports, children, analytics, tips, partners, pushToast } = useAppContext();
+  const { reports, children, analytics, tips, partners, currentUser, addNotification, pushToast, logAdminAction } = useAppContext();
 
   const activeReports = reports.filter((report) => report.status === 'active');
   const pendingReports = reports.filter((report) => report.status === 'pending');
   const resolutionRate = reports.length
     ? Math.round(
-        (reports.filter((report) => report.status === 'found' || report.status === 'closed').length /
-          reports.length) *
-          100,
-      )
+      (reports.filter((report) => report.status === 'found' || report.status === 'closed').length /
+        reports.length) *
+      100,
+    )
     : 0;
 
   const today = analytics[analytics.length - 1];
@@ -43,6 +54,52 @@ export default function AdminDashboardPage() {
     { name: 'Push', ok: true },
     { name: 'Maps', ok: true },
   ];
+
+  const handleBroadcast = async () => {
+    const result = await runAdminOperation({
+      type: 'broadcast',
+      title: 'System Broadcast',
+      body: 'Command center announcement published to active channels.',
+      meta: { source: 'admin-dashboard' },
+    });
+    if (result?.ok) {
+      pushToast('info', 'Broadcast queued to all active channels');
+      return;
+    }
+
+    logAdminAction('broadcast:create', 'Queued system-wide broadcast to active channels');
+    addNotification({
+      userId: currentUser.id,
+      title: 'Broadcast queued',
+      body: 'System announcement is now being distributed.',
+      type: 'info',
+      route: '/admin/notifications',
+    });
+    pushToast('info', 'Broadcast queued to all active channels');
+  };
+
+  const handleExportReport = async () => {
+    const result = await runAdminOperation({
+      type: 'export',
+      title: 'Report Export',
+      body: 'Admin report export prepared successfully.',
+      meta: { source: 'admin-dashboard' },
+    });
+    if (result?.ok) {
+      pushToast('success', 'Report export prepared');
+      return;
+    }
+
+    logAdminAction('report:export', 'Prepared admin report export');
+    addNotification({
+      userId: currentUser.id,
+      title: 'Export ready',
+      body: 'Your report export package is available.',
+      type: 'success',
+      route: '/admin/analytics',
+    });
+    pushToast('success', 'Report export prepared');
+  };
 
   return (
     <div className="min-h-screen bg-[#0b1220] px-4 pb-24 pt-4 text-slate-100 md:px-6 md:pb-8">
@@ -110,7 +167,7 @@ export default function AdminDashboardPage() {
       <section className="mt-4 grid gap-2 sm:grid-cols-2">
         <button
           type="button"
-          onClick={() => pushToast('info', 'Broadcast queued to all active channels')}
+          onClick={() => void handleBroadcast()}
           className="rounded-[var(--r-md)] border border-slate-700 bg-[#111a2b] p-3 text-left"
         >
           <Megaphone className="h-4 w-4 text-brand-orange" />
@@ -118,7 +175,10 @@ export default function AdminDashboardPage() {
         </button>
         <button
           type="button"
-          onClick={() => navigate('/admin/partners')}
+          onClick={() => {
+            logAdminAction('partner:navigate-add', 'Opened partner management from dashboard');
+            navigate('/admin/partners');
+          }}
           className="rounded-[var(--r-md)] border border-slate-700 bg-[#111a2b] p-3 text-left"
         >
           <Plus className="h-4 w-4 text-brand-orange" />
@@ -126,7 +186,7 @@ export default function AdminDashboardPage() {
         </button>
         <button
           type="button"
-          onClick={() => pushToast('success', 'Report export prepared')}
+          onClick={() => void handleExportReport()}
           className="rounded-[var(--r-md)] border border-slate-700 bg-[#111a2b] p-3 text-left"
         >
           <Download className="h-4 w-4 text-brand-orange" />
@@ -134,7 +194,10 @@ export default function AdminDashboardPage() {
         </button>
         <button
           type="button"
-          onClick={() => navigate('/admin/analytics')}
+          onClick={() => {
+            logAdminAction('analytics:view', 'Opened analytics dashboard');
+            navigate('/admin/analytics');
+          }}
           className="rounded-[var(--r-md)] border border-slate-700 bg-[#111a2b] p-3 text-left"
         >
           <Activity className="h-4 w-4 text-brand-orange" />
@@ -176,6 +239,44 @@ export default function AdminDashboardPage() {
               </button>
             );
           })}
+        </div>
+      </section>
+
+      <section className="mt-4 rounded-[var(--r-lg)] border border-slate-700 bg-[#111a2b] p-4">
+        <h2 className="font-display text-2xl font-bold mb-4">Live Operations Map</h2>
+        <div className="h-[400px] w-full rounded-[var(--r-md)] overflow-hidden border border-slate-700 relative z-0">
+          <MapContainer
+            center={activeReports[0]?.lastSeenLocation.lat ? [activeReports[0].lastSeenLocation.lat, activeReports[0].lastSeenLocation.lng] : [-1.2921, 36.8219]}
+            zoom={activeReports.length > 0 ? 11 : 6}
+            scrollWheelZoom={false}
+            className="h-full w-full z-0"
+          >
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+            {activeReports.map(report => {
+              const child = children.find(c => c.id === report.childId);
+              return (
+                <React.Fragment key={report.id}>
+                  <Marker position={[report.lastSeenLocation.lat || -1.2921, report.lastSeenLocation.lng || 36.8219]}>
+                    <Popup>
+                      <div className="text-slate-800">
+                        <p className="font-bold text-sm">{child?.name}</p>
+                        <p className="text-xs">{report.lastSeenLocation.address}</p>
+                        <p className="text-[10px] text-red-500 font-bold mt-1">RADIUS: {report.currentRadiusKm}km</p>
+                      </div>
+                    </Popup>
+                  </Marker>
+                  <Circle
+                    center={[report.lastSeenLocation.lat || -1.2921, report.lastSeenLocation.lng || 36.8219]}
+                    pathOptions={{ color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.15 }}
+                    radius={(report.currentRadiusKm || 1) * 1000}
+                  />
+                </React.Fragment>
+              );
+            })}
+          </MapContainer>
         </div>
       </section>
 

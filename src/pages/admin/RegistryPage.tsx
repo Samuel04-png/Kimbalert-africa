@@ -6,7 +6,7 @@ import Chip from '../../components/common/Chip';
 type Tab = 'guardians' | 'children' | 'partners';
 
 export default function RegistryPage() {
-  const { guardians, children, partners, pushToast } = useAppContext();
+  const { guardians, children, partners, pushToast, updateGuardian } = useAppContext();
   const [tab, setTab] = useState<Tab>('guardians');
   const [query, setQuery] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -26,6 +26,29 @@ export default function RegistryPage() {
 
   const toggleGuardian = (id: string) => {
     setSelectedGuardians((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
+  };
+
+  const bulkVerify = () => {
+    if (!selectedGuardians.length) return;
+    selectedGuardians.forEach((id) => {
+      updateGuardian(id, { verified: true, suspicious: false });
+    });
+    pushToast('success', `Verified ${selectedGuardians.length} guardian account(s)`);
+    setSelectedGuardians([]);
+  };
+
+  const bulkFlag = () => {
+    if (!selectedGuardians.length) return;
+    selectedGuardians.forEach((id) => {
+      updateGuardian(id, { suspicious: true });
+    });
+    pushToast('warning', `Flagged ${selectedGuardians.length} guardian account(s)`);
+    setSelectedGuardians([]);
+  };
+
+  const flagGuardian = (id: string, fullName: string) => {
+    updateGuardian(id, { suspicious: true });
+    pushToast('warning', `${fullName} flagged for review`);
   };
 
   return (
@@ -68,8 +91,8 @@ export default function RegistryPage() {
             <section className="mt-3 rounded-[var(--r-md)] border border-brand-orange/35 bg-brand-orange/10 p-3">
               <p className="text-xs text-brand-orange">{selectedGuardians.length} selected guardians</p>
               <div className="mt-2 flex gap-2">
-                <button type="button" onClick={() => pushToast('success', 'Selected guardians flagged as verified')} className="rounded-[var(--r-pill)] bg-brand-orange px-3 py-1.5 text-xs font-bold text-white">Bulk Verify</button>
-                <button type="button" onClick={() => pushToast('warning', 'Suspicious account flag submitted')} className="rounded-[var(--r-pill)] border border-brand-orange px-3 py-1.5 text-xs font-semibold text-brand-orange">Flag Suspicious</button>
+                <button type="button" onClick={bulkVerify} className="rounded-[var(--r-pill)] bg-brand-orange px-3 py-1.5 text-xs font-bold text-white">Bulk Verify</button>
+                <button type="button" onClick={bulkFlag} className="rounded-[var(--r-pill)] border border-brand-orange px-3 py-1.5 text-xs font-semibold text-brand-orange">Flag Suspicious</button>
               </div>
             </section>
           ) : null}
@@ -86,7 +109,10 @@ export default function RegistryPage() {
                     />
                     <div>
                       <p className="text-sm font-semibold">{guardian.fullName}</p>
-                      <p className="text-xs text-slate-400">{guardian.phone} • {guardian.childrenCount} children</p>
+                      <p className="text-xs text-slate-400">{guardian.phone} | {guardian.childrenCount} children</p>
+                      {guardian.suspicious ? (
+                        <p className="text-[11px] font-semibold text-red-300">Flagged for review</p>
+                      ) : null}
                     </div>
                   </label>
                   <Chip size="sm" variant={guardian.verified ? 'green' : 'pending'}>{guardian.verified ? 'Verified' : 'Unverified'}</Chip>
@@ -94,7 +120,7 @@ export default function RegistryPage() {
                 <div className="mt-2 flex gap-2">
                   <button type="button" onClick={() => setExpandedId(expandedId === guardian.id ? null : guardian.id)} className="rounded-[var(--r-pill)] border border-slate-700 bg-[#0f1625] px-3 py-1 text-[11px] font-semibold">Details</button>
                   <button type="button" onClick={() => pushToast('info', 'Message composer opened')} className="rounded-[var(--r-pill)] border border-slate-700 bg-[#0f1625] px-3 py-1 text-[11px] font-semibold"><MessageSquare className="mr-1 inline h-3.5 w-3.5" /> Send Message</button>
-                  <button type="button" onClick={() => pushToast('warning', 'Guardian flagged for review')} className="rounded-[var(--r-pill)] border border-slate-700 bg-[#0f1625] px-3 py-1 text-[11px] font-semibold"><Flag className="mr-1 inline h-3.5 w-3.5" /> Flag</button>
+                  <button type="button" onClick={() => flagGuardian(guardian.id, guardian.fullName)} className="rounded-[var(--r-pill)] border border-slate-700 bg-[#0f1625] px-3 py-1 text-[11px] font-semibold"><Flag className="mr-1 inline h-3.5 w-3.5" /> Flag</button>
                 </div>
                 {expandedId === guardian.id ? (
                   <div className="mt-2 rounded-[var(--r-sm)] border border-slate-700 bg-[#0f1625] p-3 text-xs text-slate-300">
@@ -116,7 +142,7 @@ export default function RegistryPage() {
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <p className="text-sm font-semibold">{child.name}</p>
-                  <p className="text-xs text-slate-400">{child.age} yrs • guardian {child.guardianId}</p>
+                  <p className="text-xs text-slate-400">{child.age} yrs | guardian {child.guardianId}</p>
                 </div>
                 <div className="text-right">
                   <Chip size="sm" variant={child.vaultScore >= 90 ? 'green' : 'pending'}>{child.vaultScore}% Vault</Chip>
@@ -135,7 +161,7 @@ export default function RegistryPage() {
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <p className="text-sm font-semibold">{partner.name}</p>
-                  <p className="text-xs text-slate-400">{partner.type} • {partner.location}</p>
+                  <p className="text-xs text-slate-400">{partner.type} | {partner.location}</p>
                 </div>
                 <Chip size="sm" variant={partner.active ? 'green' : 'pending'}>{partner.active ? 'Active' : 'Inactive'}</Chip>
               </div>

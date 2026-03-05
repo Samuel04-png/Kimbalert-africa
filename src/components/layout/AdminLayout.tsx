@@ -1,16 +1,57 @@
 import React from 'react';
 import { Activity, AlertTriangle, BarChart3, Bell, Home, Settings, Shield, Users } from 'lucide-react';
-import { NavLink, Outlet, matchPath, useLocation } from 'react-router-dom';
+import { Navigate, NavLink, Outlet, matchPath, useLocation } from 'react-router-dom';
+import { useAppContext } from '../../app/AppContext';
 import ToastHost from '../common/ToastHost';
+import { auth, isFirebaseConfigured } from '../../lib/firebase';
+import { useTranslation } from 'react-i18next';
+
+const LanguageSwitcher = () => {
+  const { i18n } = useTranslation();
+  return (
+    <div className="absolute top-4 right-4 z-50">
+      <select
+        value={i18n.language}
+        onChange={(e) => i18n.changeLanguage(e.target.value)}
+        className="bg-slate-800 text-slate-200 border border-slate-700 rounded-md px-3 py-1.5 text-xs shadow-sm outline-none focus:ring-1 focus:ring-brand-orange cursor-pointer"
+      >
+        <option value="en">EN</option>
+        <option value="fr">FR</option>
+        <option value="sw">SW</option>
+      </select>
+    </div>
+  );
+};
 
 const hiddenSidebarPatterns = ['/admin/alerts/:id/resolve', '/admin/alerts/:id/tip/:tipId'];
 
 export default function AdminLayout() {
+  const { currentUser } = useAppContext();
   const location = useLocation();
   const hideSidebar = hiddenSidebarPatterns.some((pattern) => matchPath(pattern, location.pathname));
+  const sessionUid = auth?.currentUser?.uid ?? null;
+  const waitingForHydration =
+    isFirebaseConfigured && Boolean(sessionUid) && currentUser.id !== sessionUid;
+
+  if (isFirebaseConfigured && !auth?.currentUser) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (waitingForHydration) {
+    return (
+      <div className="admin-app min-h-screen grid place-items-center bg-[#0b1220] px-4 text-center text-slate-300">
+        <p className="text-sm">Loading command center profile...</p>
+      </div>
+    );
+  }
+
+  if (currentUser.role !== 'admin') {
+    return <Navigate to="/guardian/home" replace />;
+  }
 
   return (
-    <div className="admin-app min-h-screen bg-[#0b1220] text-slate-200">
+    <div className="admin-app min-h-screen bg-[#0b1220] text-slate-200 relative">
+      <LanguageSwitcher />
       <div className="mx-auto flex min-h-screen max-w-[1440px]">
         {!hideSidebar ? (
           <aside className="hidden w-64 shrink-0 border-r border-slate-700 bg-[#101827] p-4 md:block">

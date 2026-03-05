@@ -1,0 +1,40 @@
+{
+    "nav": {
+        "home": "Nyumbani",
+        "children": "Watoto Wangu",
+        "report": "Ripoti Iliyopotea",
+        "activity": "Jamii",
+        "profile": "Profaili",
+        "resources": "Rasilimali",
+        "logout": "Toka"
+    },
+    "home": {
+        "welcome": "Karibu tena",
+        "active_alerts": "Arifa Tendaji",
+        "tips_submitted": "Vidokezo Vilivyowasilishwa",
+        "community_alerts": "Arifa za Jamii",
+        "report_emergency": "Ripoti Dharura",
+        "manage_children": "Dhibiti Watoto"
+    },
+    "alert": {
+        "report_missing_child": "Ripoti Mtoto Aliyepotea",
+        "select_child": "Nani aliyepotea?",
+        "last_seen": "Aliyonekana Mwisho",
+        "outfit": "Walikuwa wamevaa nini?",
+        "context": "Mazingira",
+        "submit": "Tangaza Arifa Sasa"
+    },
+    "status": {
+        "active": "Utafutaji Unaendelea",
+        "resolved": "Amepatikana Salama",
+        "pending": "Inakaguliwa",
+        "radius": "Eneo la Utafutaji"
+    },
+    "common": {
+        "save": "Okoa Mabadiliko",
+        "cancel": "Ghairi",
+        "loading": "Inapakia...",
+        "error": "Kosa limetokea",
+        "success": "Mafanikio"
+    }
+}

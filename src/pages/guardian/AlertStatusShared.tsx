@@ -5,12 +5,26 @@ import { useAppContext } from '../../app/AppContext';
 import BottomSheet from '../../components/common/BottomSheet';
 import Chip from '../../components/common/Chip';
 import FlarePulse from '../../components/common/FlarePulse';
+import { MapContainer, TileLayer, Marker, Circle, useMap } from 'react-leaflet';
+import L from 'leaflet';
+
+// Fix leaflet default icon issue in Vite
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+});
 
 export default function AlertStatusShared({ reportId }: { reportId?: string }) {
   const navigate = useNavigate();
   const { currentUser, reports, children, tips, updateReport, pushToast } = useAppContext();
   const [mapMode, setMapMode] = useState(false);
   const [tipsOpen, setTipsOpen] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [updateOpen, setUpdateOpen] = useState(false);
+  const [updateNote, setUpdateNote] = useState('');
 
   const myReports = useMemo(() => reports.filter((report) => report.guardianId === currentUser.id), [reports, currentUser.id]);
   const report = useMemo(() => {
@@ -39,6 +53,57 @@ export default function AlertStatusShared({ reportId }: { reportId?: string }) {
     }
   };
 
+  const confirmCancel = () => {
+    updateReport(report.id, {
+      status: 'closed',
+      closedAt: new Date().toISOString(),
+      resolutionType: 'guardian_retracted',
+      caseNotes: [
+        ...report.caseNotes,
+        `Guardian retracted alert: ${cancelReason || 'No reason provided'}`,
+      ],
+      timeline: [
+        ...report.timeline,
+        {
+          id: `tl-cancel-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+          title: 'Alert Cancelled by Guardian',
+          detail: cancelReason || 'Guardian retracted the alert.',
+          severity: 'info',
+          actor: 'Guardian',
+        },
+      ],
+    });
+    setCancelOpen(false);
+    setCancelReason('');
+    pushToast('warning', 'Alert has been cancelled');
+    navigate('/guardian/home');
+  };
+
+  const submitUpdate = () => {
+    if (!updateNote.trim()) {
+      pushToast('warning', 'Provide an update description');
+      return;
+    }
+    updateReport(report.id, {
+      timeline: [
+        ...report.timeline,
+        {
+          id: `tl-update-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+          title: 'Guardian Update',
+          detail: updateNote,
+          severity: 'info',
+          actor: 'Guardian',
+        },
+      ],
+      caseNotes: [...report.caseNotes, `Guardian update: ${updateNote}`],
+    });
+    setUpdateOpen(false);
+    setUpdateNote('');
+    pushToast('success', 'Update added to timeline');
+  };
+
   return (
     <div className="guardian-screen animate-page-in pb-4">
       <section className="guardian-hero p-4">
@@ -62,12 +127,25 @@ export default function AlertStatusShared({ reportId }: { reportId?: string }) {
           </button>
         </div>
 
-        <div className="mt-4 grid h-56 place-items-center overflow-hidden rounded-[var(--r-lg)] border border-slate-200 bg-bg-primary relative">
+        <div className="mt-4 grid h-[300px] place-items-center overflow-hidden rounded-[var(--r-lg)] border border-slate-200 bg-bg-primary relative z-0">
           {mapMode ? (
-            <div className="relative h-full w-full bg-[radial-gradient(circle_at_20%_20%,#ffe6d9,transparent_35%),#fff]">
-              <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-[var(--r-pill)] border border-red-500/35 bg-red-500/10 px-2 py-1 text-[10px] font-bold text-red-500">Coverage {report.currentRadiusKm}km</span>
-              <MapPin className="absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 text-red-500" />
-            </div>
+            <MapContainer
+              center={[report.lastSeenLocation.lat || -1.2921, report.lastSeenLocation.lng || 36.8219]}
+              zoom={13}
+              scrollWheelZoom={false}
+              className="h-full w-full z-0"
+            >
+              <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+              <Marker position={[report.lastSeenLocation.lat || -1.2921, report.lastSeenLocation.lng || 36.8219]} />
+              <Circle
+                center={[report.lastSeenLocation.lat || -1.2921, report.lastSeenLocation.lng || 36.8219]}
+                pathOptions={{ color: '#e8622a', fillColor: '#e8622a', fillOpacity: 0.15 }}
+                radius={(report.currentRadiusKm || 1) * 1000}
+              />
+            </MapContainer>
           ) : (
             <div className="grid place-items-center">
               <FlarePulse size={130} tone="danger" />
@@ -137,10 +215,64 @@ export default function AlertStatusShared({ reportId }: { reportId?: string }) {
 
       <div className="grid grid-cols-3 gap-2">
         <button onClick={share} className="guardian-secondary-btn py-2.5 text-xs"><Share2 className="mr-1 inline h-3.5 w-3.5" /> Share Alert</button>
-        <button onClick={() => updateReport(report.id, { status: 'closed' })} className="rounded-[var(--r-pill)] border border-red-500/30 bg-red-50 py-2.5 text-xs font-semibold text-red-600">Cancel</button>
-        <button onClick={() => navigate('/guardian/alert')} className="guardian-primary-btn py-2.5 text-xs">Update</button>
+        <button onClick={() => setCancelOpen(true)} className="rounded-[var(--r-pill)] border border-red-500/30 bg-red-50 py-2.5 text-xs font-semibold text-red-600">Cancel</button>
+        <button onClick={() => setUpdateOpen(true)} className="guardian-primary-btn py-2.5 text-xs">Update</button>
       </div>
 
+      {/* Cancel Alert Confirmation */}
+      <BottomSheet open={cancelOpen} onClose={() => setCancelOpen(false)} title="Cancel This Alert?" snap="70">
+        <div className="space-y-3">
+          <p className="rounded-[var(--r-md)] border border-red-500/30 bg-red-50 px-3 py-2 text-sm font-semibold text-red-600">
+            Warning: This will deactivate the alert and notify all partners and community that the search is cancelled.
+          </p>
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-semibold text-text-main">Reason for cancellation (optional)</span>
+            <textarea
+              rows={3}
+              value={cancelReason}
+              onChange={(event) => setCancelReason(event.target.value)}
+              placeholder="e.g. Child found safe at home, false alarm..."
+              className="w-full rounded-[var(--r-sm)] border border-slate-200 bg-bg-primary px-3.5 py-2.5 text-sm"
+            />
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" onClick={() => setCancelOpen(false)} className="rounded-[var(--r-pill)] border border-slate-300 bg-white py-2.5 text-sm font-semibold text-text-main">
+              Keep Active
+            </button>
+            <button type="button" onClick={confirmCancel} className="rounded-[var(--r-pill)] bg-red-500 py-2.5 text-sm font-bold text-white">
+              Cancel Alert
+            </button>
+          </div>
+        </div>
+      </BottomSheet>
+
+      {/* Update Alert Info */}
+      <BottomSheet open={updateOpen} onClose={() => setUpdateOpen(false)} title="Update Alert Info" snap="70">
+        <div className="space-y-3">
+          <p className="text-sm text-text-muted">
+            Add new information to help searchers. This update will appear in the alert timeline and be visible to partners and the command center.
+          </p>
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-semibold text-text-main">Update details</span>
+            <textarea
+              rows={4}
+              value={updateNote}
+              onChange={(event) => setUpdateNote(event.target.value)}
+              placeholder="e.g. Child was last seen wearing different clothes, new sighting near..."
+              className="w-full rounded-[var(--r-sm)] border border-slate-200 bg-bg-primary px-3.5 py-2.5 text-sm"
+            />
+          </label>
+          <button
+            type="button"
+            onClick={submitUpdate}
+            className="btn-interactive w-full rounded-[var(--r-pill)] bg-brand-orange py-3 text-sm font-bold text-white shadow-orange"
+          >
+            Submit Update
+          </button>
+        </div>
+      </BottomSheet>
+
+      {/* Tips Viewer */}
       <BottomSheet open={tipsOpen} onClose={() => setTipsOpen(false)} title="Tips Received" snap="70">
         <div className="space-y-2">
           {linkedTips.length ? (
@@ -175,5 +307,3 @@ function timeAgo(value: string) {
   if (mins < 1440) return `${Math.floor(mins / 60)}h ago`;
   return `${Math.floor(mins / 1440)}d ago`;
 }
-
-

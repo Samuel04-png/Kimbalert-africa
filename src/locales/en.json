@@ -1,0 +1,40 @@
+{
+    "nav": {
+        "home": "Home",
+        "children": "My Children",
+        "report": "Report Missing",
+        "activity": "Community",
+        "profile": "Profile",
+        "resources": "Resources",
+        "logout": "Logout"
+    },
+    "home": {
+        "welcome": "Welcome back",
+        "active_alerts": "Active Alerts",
+        "tips_submitted": "Tips Submitted",
+        "community_alerts": "Community Alerts",
+        "report_emergency": "Report Emergency",
+        "manage_children": "Manage Children"
+    },
+    "alert": {
+        "report_missing_child": "Report Missing Child",
+        "select_child": "Who is missing?",
+        "last_seen": "Last Seen Location",
+        "outfit": "What were they wearing?",
+        "context": "Context or Circumstances",
+        "submit": "Broadcast Alert Now"
+    },
+    "status": {
+        "active": "Active Search",
+        "resolved": "Found Safe",
+        "pending": "Reviewing",
+        "radius": "Search Radius"
+    },
+    "common": {
+        "save": "Save Changes",
+        "cancel": "Cancel",
+        "loading": "Loading...",
+        "error": "An error occurred",
+        "success": "Success"
+    }
+}

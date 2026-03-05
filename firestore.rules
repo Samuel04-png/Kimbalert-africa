@@ -1,0 +1,108 @@
+rules_version='2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userId() {
+      return request.auth.uid;
+    }
+
+    function isSelf(uid) {
+      return signedIn() && userId() == uid;
+    }
+
+    function isAdmin() {
+      return signedIn() && exists(/databases/$(database)/documents/admins/$(userId()));
+    }
+
+    function ownsReport(reportId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/reports/$(reportId))
+        && get(/databases/$(database)/documents/reports/$(reportId)).data.guardianId == userId();
+    }
+
+    match /guardians/{guardianId} {
+      allow read: if signedIn();
+      allow create, update: if isSelf(guardianId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /admins/{adminId} {
+      allow read: if isSelf(adminId) || isAdmin();
+      // Admin documents are managed by secure backend/console workflows.
+      allow create, update, delete: if false;
+    }
+
+    match /children/{childId} {
+      allow read: if isAdmin() || (signedIn() && resource.data.guardianId == userId());
+      allow create: if isAdmin() || (signedIn() && request.resource.data.guardianId == userId());
+      allow update: if isAdmin() || (signedIn() && resource.data.guardianId == userId() && request.resource.data.guardianId == userId());
+      allow delete: if isAdmin() || (signedIn() && resource.data.guardianId == userId());
+    }
+
+    match /reports/{reportId} {
+      allow read: if isAdmin() || (signedIn() && resource.data.guardianId == userId());
+      allow create: if isAdmin() || (signedIn() && request.resource.data.guardianId == userId());
+      allow update: if isAdmin() || (signedIn() && resource.data.guardianId == userId() && request.resource.data.guardianId == userId());
+      allow delete: if isAdmin() || (signedIn() && resource.data.guardianId == userId());
+    }
+
+    match /communityAlerts/{alertId} {
+      allow read: if signedIn();
+      allow create: if isAdmin() || ownsReport(request.resource.data.reportId);
+      allow update, delete: if isAdmin() || ownsReport(resource.data.reportId);
+    }
+
+    match /tips/{tipId} {
+      allow read: if signedIn();
+      allow create: if signedIn();
+      allow update, delete: if isAdmin() || ownsReport(resource.data.reportId);
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isAdmin() || (signedIn() && resource.data.userId == userId());
+      allow create: if isAdmin() || (signedIn() && request.resource.data.userId == userId());
+      allow update: if isAdmin()
+        || (signedIn()
+          && resource.data.userId == userId()
+          && request.resource.data.userId == resource.data.userId);
+      allow delete: if isAdmin() || (signedIn() && resource.data.userId == userId());
+    }
+
+    match /resources/{resourceId} {
+      allow read: if signedIn();
+      allow create: if isAdmin() || (signedIn() && request.resource.data.createdBy == userId());
+      allow update, delete: if isAdmin() || (signedIn() && resource.data.createdBy == userId());
+    }
+
+    match /partners/{partnerId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    match /analytics/{dayId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    match /settings/{docId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    match /adminInvites/{inviteId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /adminActions/{actionId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

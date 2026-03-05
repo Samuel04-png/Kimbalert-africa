@@ -1,26 +1,65 @@
-﻿import React, { useState } from 'react';
-import { ArrowLeft, Fingerprint, Globe2, Save, UserCircle2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { ArrowLeft, Camera, Fingerprint, Globe2, Save, UserCircle2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useAppContext } from '../../app/AppContext';
+import { storage, isFirebaseConfigured } from '../../lib/firebase';
 import ToggleSwitch from '../../components/common/ToggleSwitch';
 
 export default function EditProfilePage() {
   const navigate = useNavigate();
-  const { currentUser, pushToast } = useAppContext();
+  const { currentUser, pushToast, updateCurrentUserProfile } = useAppContext();
+  const storedPrefs = localStorage.getItem('guardian_preferences');
+  const parsedPrefs = storedPrefs ? (JSON.parse(storedPrefs) as { language?: string; biometric?: boolean }) : null;
   const [biometric, setBiometric] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState(currentUser.avatarUrl || '');
   const [form, setForm] = useState({
     fullName: currentUser.fullName,
     phone: currentUser.phone,
     email: currentUser.email,
     location: currentUser.location || '',
     avatarUrl: currentUser.avatarUrl || '',
-    language: 'English',
+    language: parsedPrefs?.language || 'English',
   });
 
-  const save = (event: React.FormEvent) => {
+  const save = async (event: React.FormEvent) => {
     event.preventDefault();
-    pushToast('success', 'Profile updated');
-    navigate('/guardian/profile');
+    setSaving(true);
+    try {
+      let finalAvatarUrl = form.avatarUrl.trim() || undefined;
+
+      // Upload avatar to Firebase Storage if a file was selected
+      if (avatarFile && isFirebaseConfigured && storage && currentUser.id) {
+        const storageRef = ref(storage, `guardians/${currentUser.id}/avatar`);
+        await uploadBytes(storageRef, avatarFile);
+        finalAvatarUrl = await getDownloadURL(storageRef);
+      }
+
+      updateCurrentUserProfile({
+        fullName: form.fullName.trim(),
+        phone: form.phone.trim(),
+        email: form.email.trim(),
+        location: form.location.trim() || 'South Africa',
+        avatarUrl: finalAvatarUrl,
+      });
+      localStorage.setItem(
+        'guardian_preferences',
+        JSON.stringify({
+          ...parsedPrefs,
+          language: form.language,
+          biometric,
+        }),
+      );
+      pushToast('success', 'Profile updated');
+      navigate('/guardian/profile');
+    } catch (error) {
+      console.error('Failed to update profile', error);
+      pushToast('error', 'Update failed', 'Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -33,7 +72,35 @@ export default function EditProfilePage() {
       </header>
 
       <form onSubmit={save} className="space-y-3 guardian-panel p-4">
-        <Input label="Avatar URL" value={form.avatarUrl} onChange={(value) => setForm((prev) => ({ ...prev, avatarUrl: value }))} />
+        <div>
+          <span className="mb-1.5 block text-sm font-semibold text-text-main">Profile Photo</span>
+          <div className="flex items-center gap-3">
+            <label className="cursor-pointer">
+              <div className="grid h-16 w-16 place-items-center overflow-hidden rounded-[var(--r-pill)] border-2 border-brand-orange/25 bg-bg-primary">
+                {avatarPreview ? (
+                  <img src={avatarPreview} alt="avatar" className="h-full w-full object-cover" />
+                ) : (
+                  <UserCircle2 className="h-8 w-8 text-text-muted" />
+                )}
+              </div>
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (!file) return;
+                  setAvatarFile(file);
+                  setAvatarPreview(URL.createObjectURL(file));
+                }}
+              />
+            </label>
+            <div>
+              <p className="text-xs font-semibold text-brand-orange">Tap photo to change</p>
+              <p className="text-xs text-text-muted">JPG, PNG up to 5MB</p>
+            </div>
+          </div>
+        </div>
         <Input label="Full Name" value={form.fullName} onChange={(value) => setForm((prev) => ({ ...prev, fullName: value }))} />
         <Input label="Phone" value={form.phone} onChange={(value) => setForm((prev) => ({ ...prev, phone: value }))} />
         <Input label="Email" value={form.email} onChange={(value) => setForm((prev) => ({ ...prev, email: value }))} />
@@ -62,8 +129,8 @@ export default function EditProfilePage() {
           <ToggleSwitch checked={biometric} onChange={setBiometric} />
         </div>
 
-        <button type="submit" className="btn-interactive w-full rounded-[var(--r-pill)] bg-brand-orange py-3 text-sm font-bold text-white shadow-orange">
-          <Save className="mr-1 inline h-4 w-4" /> Save Changes
+        <button type="submit" disabled={saving} className="btn-interactive w-full rounded-[var(--r-pill)] bg-brand-orange py-3 text-sm font-bold text-white shadow-orange disabled:opacity-70">
+          <Save className="mr-1 inline h-4 w-4" /> {saving ? 'Saving...' : 'Save Changes'}
         </button>
       </form>
     </div>

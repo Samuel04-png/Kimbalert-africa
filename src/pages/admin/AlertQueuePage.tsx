@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../app/AppContext';
 import Chip from '../../components/common/Chip';
 import DataTable, { DataTableColumn } from '../../components/common/DataTable';
+import { runAdminOperation } from '../../services/adminOpsService';
 
 type StatusFilter = 'all' | 'active' | 'pending' | 'found' | 'closed';
 type SortKey = 'newest' | 'oldest' | 'radius' | 'notified';
@@ -21,7 +22,7 @@ interface Row {
 
 export default function AlertQueuePage() {
   const navigate = useNavigate();
-  const { reports, children, pushToast } = useAppContext();
+  const { reports, children, currentUser, addNotification, updateReport, logAdminAction, pushToast } = useAppContext();
   const [status, setStatus] = useState<StatusFilter>('all');
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<SortKey>('newest');
@@ -123,7 +124,89 @@ export default function AlertQueuePage() {
     setRefreshing(true);
     await new Promise((resolve) => window.setTimeout(resolve, 600));
     setRefreshing(false);
+    logAdminAction('alerts:refresh', 'Manually refreshed alert queue', {
+      visibleRows: rows.length,
+    });
     pushToast('success', 'Queue refreshed');
+  };
+
+  const broadcastSelected = async () => {
+    if (!selected.length) return;
+    const result = await runAdminOperation({
+      type: 'broadcast',
+      reportIds: selected,
+      title: 'Alert Queue Broadcast Update',
+      body: 'A case update has been dispatched by command center.',
+      meta: { source: 'alert-queue', selectedCount: selected.length },
+    });
+    if (result?.ok) {
+      pushToast('info', 'Broadcast update sent to selected alerts');
+      setSelected([]);
+      return;
+    }
+
+    const timestamp = new Date().toISOString();
+    const timelineIdPrefix = Date.now();
+
+    selected.forEach((reportId, index) => {
+      const report = reports.find((item) => item.id === reportId);
+      if (!report) return;
+
+      updateReport(reportId, {
+        timeline: [
+          ...report.timeline,
+          {
+            id: `timeline-${timelineIdPrefix}-${index}`,
+            timestamp,
+            title: 'Broadcast Update Sent',
+            detail: 'Command center sent an update to all currently notified channels.',
+            severity: 'info',
+            actor: 'Admin',
+          },
+        ],
+      });
+    });
+
+    logAdminAction('alerts:bulk-broadcast', `Broadcast update sent for ${selected.length} alerts`, {
+      selectedCount: selected.length,
+      recipientCount: selected.length,
+    });
+    addNotification({
+      userId: currentUser.id,
+      title: 'Bulk broadcast completed',
+      body: `Broadcast update sent for ${selected.length} selected alert(s).`,
+      type: 'info',
+      route: '/admin/notifications',
+    });
+    setSelected([]);
+    pushToast('info', 'Broadcast update sent to selected alerts');
+  };
+
+  const exportSelected = async () => {
+    if (!selected.length) return;
+    const result = await runAdminOperation({
+      type: 'export',
+      reportIds: selected,
+      title: 'Alert Queue Export',
+      body: 'Selected alerts export generated.',
+      meta: { source: 'alert-queue', selectedCount: selected.length },
+    });
+    if (result?.ok) {
+      pushToast('success', 'Selected rows exported');
+      return;
+    }
+
+    logAdminAction('alerts:bulk-export', `Exported ${selected.length} selected alert rows`, {
+      selectedCount: selected.length,
+    });
+    addNotification({
+      userId: currentUser.id,
+      title: 'Selected alerts exported',
+      body: `${selected.length} alert row(s) were exported successfully.`,
+      type: 'success',
+      route: '/admin/notifications',
+    });
+    pushToast('success', 'Selected rows exported');
   };
 
   return (
@@ -175,8 +258,20 @@ export default function AlertQueuePage() {
         <section className="mt-3 rounded-[var(--r-md)] border border-brand-orange/35 bg-brand-orange/10 p-3">
           <p className="text-xs text-brand-orange">{selected.length} selected</p>
           <div className="mt-2 flex gap-2">
-            <button type="button" onClick={() => pushToast('info', 'Broadcast update sent to selected alerts')} className="rounded-[var(--r-pill)] bg-brand-orange px-3 py-1.5 text-xs font-bold text-white">Broadcast Update</button>
-            <button type="button" onClick={() => pushToast('success', 'Selected rows exported')} className="rounded-[var(--r-pill)] border border-brand-orange px-3 py-1.5 text-xs font-semibold text-brand-orange">Export Selected</button>
+            <button
+              type="button"
+              onClick={() => void broadcastSelected()}
+              className="rounded-[var(--r-pill)] bg-brand-orange px-3 py-1.5 text-xs font-bold text-white"
+            >
+              Broadcast Update
+            </button>
+            <button
+              type="button"
+              onClick={() => void exportSelected()}
+              className="rounded-[var(--r-pill)] border border-brand-orange px-3 py-1.5 text-xs font-semibold text-brand-orange"
+            >
+              Export Selected
+            </button>
           </div>
         </section>
       ) : null}

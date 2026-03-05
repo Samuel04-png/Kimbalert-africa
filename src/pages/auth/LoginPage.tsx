@@ -1,8 +1,24 @@
-import React, { useMemo, useState } from 'react';
-import { ArrowLeft, Eye, EyeOff, Lock, Mail, Phone } from 'lucide-react';
+import React, { useCallback, useState } from 'react';
+import { ArrowLeft, Eye, EyeOff, Lock, Mail, Phone, Shield } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../app/AppContext';
 import PhoneFrame from '../../components/layout/PhoneFrame';
+import { auth, db, isFirebaseConfigured } from '../../lib/firebase';
+import { sendPasswordResetEmail, signInWithEmailAndPassword } from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+
+function normalizePhoneForAuth(value: string) {
+  const compact = value.replace(/[\s\-()]/g, '');
+  if (compact.startsWith('+')) {
+    return `+${compact.slice(1).replace(/\D/g, '')}`;
+  }
+
+  const digits = compact.replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.startsWith('0')) return `+27${digits.slice(1)}`;
+  if (digits.startsWith('27')) return `+${digits}`;
+  return `+27${digits}`;
+}
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -14,11 +30,22 @@ export default function LoginPage() {
   const [form, setForm] = useState({ identifier: '', password: '', forgotEmail: '' });
   const [errors, setErrors] = useState<{ identifier?: string; password?: string; forgotEmail?: string }>({});
 
-  const adminUnlocked = useMemo(() => {
-    const combined = `${form.identifier}${form.password}`;
-    const specialCount = (combined.match(/[^a-zA-Z0-9]/g) ?? []).length;
-    return specialCount >= 2;
-  }, [form.identifier, form.password]);
+  // Hidden admin portal — activated by tapping the logo 5 times
+  const [logoTaps, setLogoTaps] = useState(0);
+  const adminPortalVisible = logoTaps >= 5;
+
+  const handleLogoTap = useCallback(() => {
+    setLogoTaps((prev) => {
+      const next = prev + 1;
+      if (next === 5) {
+        // Subtle haptic-like feedback — brief flash
+        document.body.style.transition = 'background-color 0.15s';
+        document.body.style.backgroundColor = 'rgba(232,98,42,0.04)';
+        window.setTimeout(() => { document.body.style.backgroundColor = ''; }, 200);
+      }
+      return next;
+    });
+  }, []);
 
   const validate = () => {
     const next: typeof errors = {};
@@ -37,28 +64,119 @@ export default function LoginPage() {
     }
 
     setLoading(true);
-    await new Promise((resolve) => window.setTimeout(resolve, 800));
+    try {
+      if (isFirebaseConfigured && auth && db) {
+        const identifier = form.identifier.trim();
 
-    if (adminUnlocked) {
-      setCurrentUser(admins[0]);
-      pushToast('info', 'Admin credential pattern detected');
-      navigate('/admin/dashboard');
-      return;
+        // Phone number → OTP flow
+        if (!identifier.includes('@')) {
+          const e164 = normalizePhoneForAuth(identifier);
+          if (!e164) {
+            pushToast('warning', 'Enter a valid phone number for OTP sign in');
+            setLoading(false);
+            return;
+          }
+          localStorage.removeItem('pending_profile');
+          localStorage.removeItem('pending_role');
+          localStorage.setItem('pending_phone', identifier);
+          localStorage.setItem('pending_phone_e164', e164);
+          localStorage.setItem('pending_auth_mode', 'login');
+          navigate('/verify');
+          setLoading(false);
+          return;
+        }
+
+        // Email + password → Firebase Auth
+        const credential = await signInWithEmailAndPassword(auth, identifier, form.password);
+        const { user } = credential;
+        const userId = user.uid;
+
+        // Check admin first, then guardian — auto-routes to correct dashboard
+        const adminDoc = await getDoc(doc(db, 'admins', userId));
+        if (adminDoc.exists()) {
+          setCurrentUser(adminDoc.data() as typeof admins[number]);
+          pushToast('success', 'Welcome back, Commander');
+          navigate('/admin/dashboard');
+        } else {
+          const guardianDoc = await getDoc(doc(db, 'guardians', userId));
+          if (guardianDoc.exists()) {
+            setCurrentUser(guardianDoc.data() as typeof guardians[number]);
+          } else {
+            // First-time email user — create guardian profile
+            const fallbackGuardian = {
+              id: user.uid,
+              role: 'guardian' as const,
+              fullName: user.displayName || 'Guardian User',
+              phone: user.phoneNumber || '',
+              phoneNormalized: normalizePhoneForAuth(user.phoneNumber || ''),
+              email: user.email || identifier,
+              location: 'South Africa',
+              joinedAt: new Date().toISOString(),
+              childrenCount: 0,
+              verified: true,
+            };
+            await setDoc(doc(db, 'guardians', user.uid), fallbackGuardian, { merge: true });
+            setCurrentUser(fallbackGuardian);
+          }
+          pushToast('success', 'Welcome back');
+          navigate('/guardian/home');
+        }
+        return;
+      }
+
+      // Local fallback when Firebase env is not configured.
+      await new Promise((resolve) => window.setTimeout(resolve, 800));
+      if (adminPortalVisible) {
+        setCurrentUser(admins[0]);
+        pushToast('info', 'Admin session started');
+        navigate('/admin/dashboard');
+        return;
+      }
+
+      setCurrentUser(guardians[0]);
+      pushToast('success', 'Welcome back');
+      navigate('/guardian/home');
+    } catch {
+      setShake(true);
+      window.setTimeout(() => setShake(false), 260);
+      pushToast('error', 'Login failed', 'Check your credentials and try again.');
+    } finally {
+      setLoading(false);
     }
-
-    setCurrentUser(guardians[0]);
-    pushToast('success', 'Welcome back');
-    navigate('/guardian/home');
   };
 
-  const submitForgot = () => {
+  const continueWithOtp = () => {
+    const identifier = form.identifier.trim();
+    const e164 = normalizePhoneForAuth(identifier);
+    if (!e164) {
+      pushToast('warning', 'Enter your phone number first');
+      return;
+    }
+    localStorage.removeItem('pending_profile');
+    localStorage.removeItem('pending_role');
+    localStorage.setItem('pending_phone', identifier);
+    localStorage.setItem('pending_phone_e164', e164);
+    localStorage.setItem('pending_auth_mode', 'login');
+    navigate('/verify');
+  };
+
+  const submitForgot = async () => {
     if (!form.forgotEmail.trim()) {
       setErrors((prev) => ({ ...prev, forgotEmail: 'Enter your email or phone' }));
       return;
     }
-    pushToast('success', 'Reset link sent', 'Check your messages for recovery instructions.');
-    setForgotOpen(false);
-    setForm((prev) => ({ ...prev, forgotEmail: '' }));
+    try {
+      if (isFirebaseConfigured && auth && form.forgotEmail.includes('@')) {
+        await sendPasswordResetEmail(auth, form.forgotEmail.trim());
+        pushToast('success', 'Reset link sent', 'Check your email for recovery instructions.');
+      } else {
+        pushToast('success', 'Reset link sent', 'Check your messages for recovery instructions.');
+      }
+      setForgotOpen(false);
+      setForm((prev) => ({ ...prev, forgotEmail: '' }));
+    } catch {
+      pushToast('error', 'Unable to send reset link');
+    }
   };
 
   return (
@@ -66,22 +184,43 @@ export default function LoginPage() {
       <div className="auth-screen relative min-h-screen overflow-hidden px-4 pb-8 pt-3">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_85%_15%,rgba(232,98,42,0.22),transparent_40%),radial-gradient(circle_at_10%_85%,rgba(39,84,138,0.18),transparent_45%)] animate-float" />
         <div className="relative z-10">
-          <Link to="/" className="grid h-10 w-10 place-items-center rounded-[var(--r-pill)] border border-brand-orange/20 bg-white text-text-main">
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
+          <div className="flex items-center justify-between">
+            <Link to="/" className="grid h-10 w-10 place-items-center rounded-[var(--r-pill)] border border-brand-orange/20 bg-white text-text-main">
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+
+            {/* Hidden admin activator — looks like a decorative logo */}
+            <button
+              type="button"
+              onClick={handleLogoTap}
+              className="grid h-10 w-10 place-items-center rounded-[var(--r-pill)] bg-transparent select-none"
+              aria-label="App logo"
+            >
+              <img
+                src={`${import.meta.env.BASE_URL}Kimbalert-africa_logo.png`}
+                alt=""
+                className="h-8 w-8 rounded-[var(--r-sm)] object-contain"
+                draggable={false}
+              />
+            </button>
+          </div>
 
           <section className={`mt-6 rounded-[var(--r-xl)] border border-slate-200 bg-white p-6 shadow-xl ${shake ? 'animate-shake' : ''}`}>
-            <p className="type-kicker">Guardian Login</p>
+            <p className="type-kicker">{adminPortalVisible ? 'Command Center' : 'Guardian Login'}</p>
             <h1 className="mt-2 type-page-title">Welcome Back</h1>
-            <p className="mt-1 type-muted">Login to access your Child Vault and manage alerts.</p>
+            <p className="mt-1 type-muted">
+              {adminPortalVisible
+                ? 'Sign in with your admin credentials to access the command center.'
+                : 'Login to access your Child Vault and manage alerts.'}
+            </p>
 
             <form onSubmit={submit} className="mt-5 space-y-4">
               <Field
                 label="Email or Phone"
                 value={form.identifier}
                 onChange={(value) => setForm((prev) => ({ ...prev, identifier: value }))}
-                placeholder="example@email.com"
-                icon={<Mail className="h-4 w-4" />}
+                placeholder={adminPortalVisible ? 'admin@kimbalert.com' : 'example@email.com'}
+                icon={adminPortalVisible ? <Shield className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
                 error={errors.identifier}
               />
 
@@ -143,24 +282,45 @@ export default function LoginPage() {
                 </div>
               ) : null}
 
-              {adminUnlocked ? (
-                <div className="rounded-[var(--r-md)] border border-brand-orange/35 bg-brand-orange-light p-3 text-xs font-semibold text-brand-orange">
-                  Admin access rule matched. Sign in will open command center.
+              {/* Admin portal banner — only visible after 5 taps on logo */}
+              {adminPortalVisible ? (
+                <div className="rounded-[var(--r-md)] border border-slate-700 bg-[#101827] p-3 text-xs font-semibold text-slate-300 flex items-center gap-2">
+                  <Shield className="h-4 w-4 text-brand-orange" />
+                  <span>Command Center access enabled. Sign in with admin credentials.</span>
                 </div>
               ) : null}
 
               <button
                 type="submit"
                 disabled={loading}
-                className="btn-interactive w-full rounded-[var(--r-pill)] bg-brand-orange py-3.5 text-sm font-bold text-white shadow-orange disabled:opacity-70"
+                className={`btn-interactive w-full rounded-[var(--r-pill)] py-3.5 text-sm font-bold text-white shadow-orange disabled:opacity-70 ${adminPortalVisible ? 'bg-[#101827]' : 'bg-brand-orange'
+                  }`}
               >
-                {loading ? 'Signing in...' : adminUnlocked ? 'Enter Command Center' : 'Sign In'}
+                {loading
+                  ? 'Signing in...'
+                  : adminPortalVisible
+                    ? 'Enter Command Center'
+                    : 'Sign In'}
               </button>
 
-              <Link to="/verify" className="flex w-full items-center justify-center gap-2 rounded-[var(--r-pill)] border border-slate-300 bg-white py-3.5 text-sm font-semibold text-text-main">
-                <Phone className="h-4 w-4" />
-                Continue with Phone OTP
-              </Link>
+              {!adminPortalVisible ? (
+                <button
+                  type="button"
+                  onClick={continueWithOtp}
+                  className="flex w-full items-center justify-center gap-2 rounded-[var(--r-pill)] border border-slate-300 bg-white py-3.5 text-sm font-semibold text-text-main"
+                >
+                  <Phone className="h-4 w-4" />
+                  Continue with Phone OTP
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => { setLogoTaps(0); }}
+                  className="flex w-full items-center justify-center gap-2 rounded-[var(--r-pill)] border border-slate-300 bg-white py-3.5 text-sm font-semibold text-text-muted"
+                >
+                  Back to Guardian Login
+                </button>
+              )}
 
               <p className="text-center text-sm text-text-muted">
                 New here?{' '}
@@ -199,9 +359,8 @@ function Field({
         <input
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          className={`w-full rounded-[var(--r-sm)] border bg-bg-primary pl-10 pr-4 py-3 text-sm text-text-main focus:outline-none focus:border-brand-orange ${
-            error ? 'border-red-400' : 'border-slate-200'
-          }`}
+          className={`w-full rounded-[var(--r-sm)] border bg-bg-primary pl-10 pr-4 py-3 text-sm text-text-main focus:outline-none focus:border-brand-orange ${error ? 'border-red-400' : 'border-slate-200'
+            }`}
           placeholder={placeholder}
         />
       </div>

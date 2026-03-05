@@ -6,6 +6,7 @@ import BottomSheet from '../../components/common/BottomSheet';
 import Chip from '../../components/common/Chip';
 import FlarePulse from '../../components/common/FlarePulse';
 import StepIndicator from '../../components/common/StepIndicator';
+import { generateIncidentSummary } from '../../services/aiService';
 
 const outfits = ['School Uniform', 'Casual', 'Sports', 'Traditional', 'Unknown'];
 const severities = [
@@ -23,6 +24,7 @@ export default function ReportMissingPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [aiSummary, setAiSummary] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const mine = useMemo(() => children.filter((child) => child.guardianId === currentUser.id), [children, currentUser.id]);
@@ -76,27 +78,29 @@ export default function ReportMissingPage() {
     });
   };
 
-  const generateAiSummary = () => {
-    const outfit = form.outfit ? `Wearing ${form.outfit.toLowerCase()}.` : '';
-    const context = form.context ? `Context: ${form.context.trim()}.` : '';
-    const nearby = form.whoNearby ? `Nearby: ${form.whoNearby.trim()}.` : '';
-    const location = form.address ? `Last seen at ${form.address.trim()}.` : '';
-    const base = selectedChild
-      ? `${selectedChild.name}, age ${selectedChild.age}, reported missing.`
-      : 'Child reported missing.';
+  const generateAiSummary = async () => {
+    if (!selectedChild) return;
+    setAiLoading(true);
+    try {
+      const summary = await generateIncidentSummary({
+        childName: selectedChild.name,
+        age: selectedChild.age,
+        location: form.address || 'Unknown location',
+        outfit: form.outfit,
+        context: form.context,
+        nearby: form.whoNearby,
+      });
 
-    const summary = [base, location, outfit, context, nearby]
-      .filter(Boolean)
-      .join(' ')
-      .trim();
-
-    if (!summary) return;
-    setAiSummary(summary);
-    if (!form.context.trim()) {
-      setForm((prev) => ({
-        ...prev,
-        context: summary,
-      }));
+      if (!summary) return;
+      setAiSummary(summary);
+      if (!form.context.trim()) {
+        setForm((prev) => ({
+          ...prev,
+          context: summary,
+        }));
+      }
+    } finally {
+      setAiLoading(false);
     }
   };
 
@@ -239,10 +243,11 @@ export default function ReportMissingPage() {
               </p>
               <button
                 type="button"
-                onClick={generateAiSummary}
+                onClick={() => void generateAiSummary()}
+                disabled={aiLoading}
                 className="rounded-[var(--r-pill)] border border-brand-green/30 bg-white px-3 py-1.5 text-xs font-semibold text-brand-green"
               >
-                Generate Summary
+                {aiLoading ? 'Generating...' : 'Generate Summary'}
               </button>
             </div>
             <p className="mt-1 text-xs text-text-muted">
@@ -301,7 +306,7 @@ export default function ReportMissingPage() {
       <BottomSheet open={confirmOpen} onClose={() => setConfirmOpen(false)} title="Confirm Alert Broadcast" snap="40">
         <div className="space-y-3 text-sm text-text-muted">
             <p className="rounded-[var(--r-md)] border border-red-500/30 bg-red-50 px-3 py-2 text-red-600 font-semibold">
-              ⚠ This will notify authorities and nearby citizens.
+              Warning: This will notify authorities and nearby citizens.
             </p>
           <p>Initial radius: {selectedSeverity.radius}km. Expansion: +5km per hour.</p>
           <div className="grid grid-cols-2 gap-2">
