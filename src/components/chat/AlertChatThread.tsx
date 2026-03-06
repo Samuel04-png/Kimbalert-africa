@@ -79,14 +79,14 @@ export default function AlertChatThread({
     }
 
     return (
-        <div className="flex flex-col h-[60vh] md:h-[500px] w-full bg-[#f8fafc] dark:bg-[#0f1625] rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
+        <div className="flex flex-col h-[60vh] md:h-[500px] w-full bg-[#f8fafc] rounded-lg overflow-hidden border border-slate-200">
             <div
                 ref={scrollRef}
                 className="flex-1 overflow-y-auto p-4 space-y-3"
             >
                 {messages.length === 0 ? (
                     <div className="h-full grid place-items-center text-center px-4">
-                        <p className="text-sm text-slate-500 dark:text-slate-400">
+                        <p className="text-sm text-slate-500">
                             No messages yet.<br />
                             Start the conversation regarding this alert.
                         </p>
@@ -102,8 +102,8 @@ export default function AlertChatThread({
                                 </span>
                                 <div
                                     className={`px-3 py-2 rounded-2xl max-w-[85%] text-sm ${isMe
-                                            ? 'bg-brand-orange text-white rounded-br-none'
-                                            : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-bl-none shadow-sm'
+                                        ? 'bg-brand-orange text-white rounded-br-none'
+                                        : 'bg-white text-slate-800 border border-slate-200 rounded-bl-none shadow-sm'
                                         }`}
                                 >
                                     <p className="whitespace-pre-wrap break-words">{msg.text}</p>
@@ -114,12 +114,12 @@ export default function AlertChatThread({
                 )}
             </div>
 
-            <form onSubmit={sendMessage} className="p-3 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-end gap-2">
+            <form onSubmit={sendMessage} className="p-3 bg-white border-t border-slate-200 flex items-end gap-2">
                 <textarea
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     placeholder="Type a message..."
-                    className="flex-1 bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-brand-orange/50 dark:focus:border-brand-orange/50 rounded-xl px-3 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none resize-none min-h-[40px] max-h-[120px]"
+                    className="flex-1 bg-slate-100 border border-transparent focus:border-brand-orange/50 rounded-xl px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none resize-none min-h-[40px] max-h-[120px]"
                     rows={1}
                     onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
@@ -131,7 +131,7 @@ export default function AlertChatThread({
                 <button
                     type="submit"
                     disabled={!newMessage.trim()}
-                    className="h-10 w-10 shrink-0 rounded-full bg-brand-orange text-white grid place-items-center disabled:opacity-50 disabled:bg-slate-300 dark:disabled:bg-slate-700 transition-colors"
+                    className="h-10 w-10 shrink-0 rounded-full bg-brand-orange text-white grid place-items-center disabled:opacity-50 disabled:bg-slate-300 transition-colors"
                 >
                     <Send className="w-4 h-4 translate-x-[-1px] translate-y-[1px]" />
                 </button>

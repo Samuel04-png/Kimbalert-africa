@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
-        devOptions: { enabled: true },
+        devOptions: { enabled: false },
         manifest: {
           name: 'KimbAlert Africa',
           short_name: 'KimbAlert',
