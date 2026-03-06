@@ -13,6 +13,7 @@ import ProfileCompletionPage from './pages/auth/ProfileCompletionPage';
 
 import LandingPage from './pages/public/LandingPage';
 import OnboardingPage from './pages/public/OnboardingPage';
+import ScanLandingPage from './pages/public/ScanLandingPage';
 
 import GuardianHomePage from './pages/guardian/GuardianHomePage';
 import GuardianChildrenPage from './pages/guardian/GuardianChildrenPage';
@@ -54,6 +55,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
+        <Route path="/scan/:braceletId" element={<ScanLandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/verify" element={<VerifyPage />} />

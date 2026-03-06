@@ -26,6 +26,8 @@ export default function QrBraceletPage() {
   const activeId = selectedChildId || mine[0]?.id || '';
   const child = mine.find((entry) => entry.id === activeId) ?? mine[0] ?? null;
 
+  const scanUrl = child ? `${window.location.origin}/scan/${child.qrBraceletId}` : '';
+
   useEffect(() => {
     if (scanMode) {
       if (!scannerRef.current) {
@@ -37,11 +39,16 @@ export default function QrBraceletPage() {
         scannerRef.current.render(
           (decodedText) => {
             pushToast('success', 'QR Code Scanned', `Bracelet ID: ${decodedText}`);
-            // If we found a matching child, switch to them; in reality, this would initiate a report
-            const matchedChild = children.find(c => c.qrBraceletId === decodedText);
+            // Extract bracelet ID from URL or plain text
+            const idMatch = decodedText.match(/\/scan\/(.+)$/);
+            const scannedId = idMatch ? idMatch[1] : decodedText;
+            const matchedChild = children.find(c => c.qrBraceletId === scannedId);
             if (matchedChild) {
               setSelectedChildId(matchedChild.id);
               pushToast('info', 'Found child profile', matchedChild.name);
+            } else {
+              // External bracelet — open the public scan page
+              window.open(`/scan/${scannedId}`, '_blank');
             }
             setScanMode(false); // turn off after successful scan
           },
@@ -159,7 +166,7 @@ export default function QrBraceletPage() {
           </div>
         </div>
 
-        <p className="mt-3 type-muted text-sm px-2">When scanned, this code alerts the task force and links to the secure vault profile.</p>
+        <p className="mt-3 type-muted text-sm px-2">When scanned, this code opens the child's public safety page so anyone can contact the guardian or report a sighting.</p>
       </section>
 
       <div className="grid grid-cols-2 gap-2 mb-2">

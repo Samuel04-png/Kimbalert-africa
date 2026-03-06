@@ -25,7 +25,7 @@ service cloud.firestore {
     }
 
     match /guardians/{guardianId} {
-      allow read: if signedIn();
+      allow read: if true;
       allow create, update: if isSelf(guardianId) || isAdmin();
       allow delete: if isAdmin();
     }
@@ -37,14 +37,14 @@ service cloud.firestore {
     }
 
     match /children/{childId} {
-      allow read: if isAdmin() || (signedIn() && resource.data.guardianId == userId());
+      allow read: if true;
       allow create: if isAdmin() || (signedIn() && request.resource.data.guardianId == userId());
       allow update: if isAdmin() || (signedIn() && resource.data.guardianId == userId() && request.resource.data.guardianId == userId());
       allow delete: if isAdmin() || (signedIn() && resource.data.guardianId == userId());
     }
 
     match /reports/{reportId} {
-      allow read: if isAdmin() || (signedIn() && resource.data.guardianId == userId());
+      allow read: if true;
       allow create: if isAdmin() || (signedIn() && request.resource.data.guardianId == userId());
       allow update: if isAdmin() || (signedIn() && resource.data.guardianId == userId() && request.resource.data.guardianId == userId());
       allow delete: if isAdmin() || (signedIn() && resource.data.guardianId == userId());
@@ -58,7 +58,7 @@ service cloud.firestore {
 
     match /tips/{tipId} {
       allow read: if signedIn();
-      allow create: if signedIn();
+      allow create: if true;
       allow update, delete: if isAdmin() || ownsReport(resource.data.reportId);
     }
 
@@ -106,6 +106,11 @@ service cloud.firestore {
       allow create: if signedIn() && request.resource.data.guardianId == userId();
       allow update: if isAdmin();
       allow delete: if isAdmin();
+    }
+
+    match /scanEvents/{eventId} {
+      allow create: if true;
+      allow read: if isAdmin();
     }
 
     match /{document=**} {
