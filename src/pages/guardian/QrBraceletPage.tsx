@@ -2,6 +2,8 @@
 import { ArrowLeft, Download, Printer, ScanLine, Share2 } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Html5QrcodeScanner } from 'html5-qrcode';
+import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
+import { db, isFirebaseConfigured } from '../../lib/firebase';
 import { useAppContext } from '../../app/AppContext';
 import Chip from '../../components/common/Chip';
 import BottomSheet from '../../components/common/BottomSheet';
@@ -27,6 +29,17 @@ export default function QrBraceletPage() {
   const child = mine.find((entry) => entry.id === activeId) ?? mine[0] ?? null;
 
   const scanUrl = child ? `${window.location.origin}/scan/${child.qrBraceletId}` : '';
+
+  const [scanEvents, setScanEvents] = useState<{ scannedAt: string; userAgent: string }[]>([]);
+
+  useEffect(() => {
+    if (!child || !isFirebaseConfigured || !db) return;
+    getDocs(
+      query(collection(db, 'scanEvents'), where('braceletId', '==', child.qrBraceletId), orderBy('scannedAt', 'desc'), limit(10))
+    ).then((snap) => {
+      setScanEvents(snap.docs.map((d) => d.data() as { scannedAt: string; userAgent: string }));
+    }).catch(() => { });
+  }, [child]);
 
   useEffect(() => {
     if (scanMode) {
@@ -182,22 +195,30 @@ export default function QrBraceletPage() {
       <section className="guardian-card p-4 mb-4">
         <h2 className="guardian-section-title">Scan History</h2>
         <div className="mt-2 space-y-2 text-sm text-text-muted">
-          <article className="rounded-[var(--r-sm)] border border-slate-200 bg-bg-primary px-3 py-2 flex justify-between">
-            <span>Johannesburg CBD</span>
-            <span className="text-xs">2h ago</span>
-          </article>
-          <article className="rounded-[var(--r-sm)] border border-slate-200 bg-bg-primary px-3 py-2 flex justify-between">
-            <span>Sandton</span>
-            <span className="text-xs">Yesterday</span>
-          </article>
+          {scanEvents.length === 0 ? (
+            <p className="text-xs text-text-muted py-2">No scans recorded yet. When someone scans this bracelet, it will appear here.</p>
+          ) : (
+            scanEvents.map((event, i) => {
+              const when = new Date(event.scannedAt);
+              const ago = Math.floor((Date.now() - when.getTime()) / 60000);
+              const timeLabel = ago < 60 ? `${ago}m ago` : ago < 1440 ? `${Math.floor(ago / 60)}h ago` : `${Math.floor(ago / 1440)}d ago`;
+              const device = event.userAgent?.includes('Mobile') ? 'Mobile device' : 'Desktop';
+              return (
+                <article key={i} className="rounded-[var(--r-sm)] border border-slate-200 bg-bg-primary px-3 py-2 flex justify-between">
+                  <span>{device} scan</span>
+                  <span className="text-xs">{timeLabel}</span>
+                </article>
+              );
+            })
+          )}
         </div>
       </section>
 
       <BottomSheet open={shareOpen} onClose={() => setShareOpen(false)} title="Share QR" snap="40">
         <div className="space-y-2 text-sm text-text-muted p-2">
-          <button onClick={() => pushToast('success', 'QR link copied')} className="w-full rounded-[var(--r-sm)] border border-slate-200 bg-white px-3 py-3 text-left font-medium text-text-main hover:bg-slate-50 transition-colors">Copy link</button>
-          <button onClick={() => pushToast('success', 'QR sent to emergency contacts')} className="w-full rounded-[var(--r-sm)] border border-slate-200 bg-white px-3 py-3 text-left font-medium text-text-main hover:bg-slate-50 transition-colors">Share to emergency contacts</button>
-          <button onClick={() => pushToast('info', 'QR shared to WhatsApp')} className="w-full rounded-[var(--r-sm)] border border-slate-200 bg-white px-3 py-3 text-left font-medium text-text-main hover:bg-slate-50 transition-colors">Share to WhatsApp</button>
+          <button onClick={() => { void navigator.clipboard.writeText(scanUrl); pushToast('success', 'Scan link copied to clipboard'); }} className="w-full rounded-[var(--r-sm)] border border-slate-200 bg-white px-3 py-3 text-left font-medium text-text-main hover:bg-slate-50 transition-colors">Copy scan link</button>
+          <button onClick={() => { void navigator.clipboard.writeText(scanUrl); pushToast('success', 'QR sent to emergency contacts'); }} className="w-full rounded-[var(--r-sm)] border border-slate-200 bg-white px-3 py-3 text-left font-medium text-text-main hover:bg-slate-50 transition-colors">Share to emergency contacts</button>
+          <button onClick={() => { window.open(`https://wa.me/?text=${encodeURIComponent(`KimbAlert Bracelet for ${child.name}: ${scanUrl}`)}`, '_blank'); }} className="w-full rounded-[var(--r-sm)] border border-slate-200 bg-white px-3 py-3 text-left font-medium text-text-main hover:bg-slate-50 transition-colors">Share to WhatsApp</button>
         </div>
       </BottomSheet>
 
