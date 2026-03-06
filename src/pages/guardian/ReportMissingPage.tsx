@@ -191,6 +191,7 @@ export default function ReportMissingPage() {
       caseNotes: [`Emergency contact: ${form.emergencyContact}`],
     });
 
+    setConfirmOpen(false);
     setSubmitted(true);
     window.setTimeout(() => navigate(`/guardian/alert/status/${reportId}`), 1600);
   };

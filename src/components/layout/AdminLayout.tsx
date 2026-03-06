@@ -35,10 +35,10 @@ export default function AdminLayout() {
   }
 
   return (
-    <div className="admin-app min-h-screen bg-[#0b1220] text-slate-200 relative">
-      <div className="mx-auto flex min-h-screen max-w-[1440px]">
+    <div className="admin-app h-screen overflow-hidden bg-[#0b1220] text-slate-200 relative">
+      <div className="mx-auto flex h-full max-w-[1440px]">
         {!hideSidebar ? (
-          <aside className="hidden w-64 shrink-0 border-r border-slate-700 bg-[#101827] p-4 md:block">
+          <aside className="hidden w-64 shrink-0 overflow-y-auto border-r border-slate-700 bg-[#101827] p-4 md:block">
             <div className="mb-6 flex items-center gap-3 px-2">
               <img
                 src={`${import.meta.env.BASE_URL}Kimbalert-africa_logo.png`}
@@ -54,7 +54,7 @@ export default function AdminLayout() {
           </aside>
         ) : null}
 
-        <section className="min-w-0 flex-1">
+        <section className="min-w-0 flex-1 overflow-y-auto">
           <Outlet />
         </section>
       </div>

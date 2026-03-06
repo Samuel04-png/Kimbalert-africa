@@ -245,7 +245,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const logError =
       (label: string) =>
         (error: unknown): void => {
-          console.error(`Firestore listener failed: ${label}`, error);
+          console.error(`🚨 FIRESTORE PERMISSIONS ERROR: listener failed on [${label}] 🚨\nError:`, error);
         };
 
     if (!isCurrentAdminSession) {
@@ -426,16 +426,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       setAuthUid(user.uid);
 
-      const adminDoc = await getDoc(doc(db, 'admins', user.uid));
-      if (adminDoc.exists()) {
-        setCurrentUserState(adminDoc.data() as AdminUser);
-        return;
+      try {
+        const adminDoc = await getDoc(doc(db, 'admins', user.uid));
+        console.log("Admin doc check:", adminDoc.exists(), adminDoc.data());
+        if (adminDoc.exists()) {
+          setCurrentUserState(adminDoc.data() as AdminUser);
+          return;
+        }
+      } catch (adminErr) {
+        console.error("Failed to read admin doc:", adminErr);
       }
 
-      const guardianDoc = await getDoc(doc(db, 'guardians', user.uid));
-      if (guardianDoc.exists()) {
-        setCurrentUserState(guardianDoc.data() as GuardianUser);
-        return;
+      try {
+        const guardianDoc = await getDoc(doc(db, 'guardians', user.uid));
+        console.log("Guardian doc check:", guardianDoc.exists(), guardianDoc.data());
+        if (guardianDoc.exists()) {
+          setCurrentUserState(guardianDoc.data() as GuardianUser);
+          return;
+        }
+      } catch (guardianErr) {
+        console.error("Failed to read guardian doc:", guardianErr);
       }
 
       const pendingRaw = localStorage.getItem('pending_profile');
@@ -496,7 +506,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         phone: pending?.phone || user.phoneNumber || '',
         phoneNormalized,
         email: pending?.email || user.email || '',
-        nationalId: pending?.nationalId,
+        nationalId: pending?.nationalId || '',
         location: pending?.location || 'South Africa',
         avatarUrl: user.photoURL || undefined,
         joinedAt: new Date().toISOString(),
@@ -1047,11 +1057,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!useCloud || !db) return;
 
     const collectionName = user.role === 'admin' ? 'admins' : 'guardians';
+    const finalUserId = user.id || authUid || auth?.currentUser?.uid;
+
+    if (!finalUserId) {
+      console.error("Cannot sync user profile to Firestore: missing user ID.", user);
+      return;
+    }
+
     const payload = {
       ...user,
+      id: finalUserId,
       phoneNormalized: normalizePhone(user.phone),
     };
-    void setDoc(doc(db, collectionName, user.id), payload, { merge: true });
+    void setDoc(doc(db, collectionName, finalUserId), payload, { merge: true });
   };
 
   const updateCurrentUserProfile: AppContextState['updateCurrentUserProfile'] = (updates) => {

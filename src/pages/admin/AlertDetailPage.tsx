@@ -88,7 +88,7 @@ export default function AlertDetailPage() {
       <section className="mt-3 rounded-[var(--r-xl)] border border-slate-700 bg-[var(--gradient-navy)] p-4 shadow-lg">
         <p className="text-xs uppercase tracking-wider text-slate-400">Child Vault Card</p>
         <div className="mt-2 flex items-start gap-3">
-          <img src={child.photoUrls[0]} alt={child.name} className="h-16 w-16 rounded-[var(--r-md)] object-cover border border-white/20" />
+          <img src={child.photoUrls?.[0] || '/Kimbalert-africa_logo.png'} alt={child.name} className="h-16 w-16 rounded-[var(--r-md)] object-cover bg-white p-0.5 border border-white/20" />
           <div className="min-w-0 flex-1">
             <h1 className="truncate font-display text-3xl font-bold">{child.name}</h1>
             <p className="text-xs text-slate-300">{child.age} yrs • {child.gender} • {child.location.schoolName}</p>
@@ -203,7 +203,7 @@ export default function AlertDetailPage() {
       </section>
 
       <div className="mt-4 grid grid-cols-2 gap-2">
-        <button type="button" onClick={() => updateReport(report.id, { status: 'found' })} className="rounded-[var(--r-pill)] bg-brand-green py-3 text-sm font-bold text-white">Mark as Found</button>
+        <button type="button" onClick={() => { updateReport(report.id, { status: 'found' }); pushToast('success', 'Alert marked as found'); navigate('/admin/alerts'); }} className="rounded-[var(--r-pill)] bg-brand-green py-3 text-sm font-bold text-white">Mark as Found</button>
         <button type="button" onClick={() => navigate(`/admin/alerts/${report.id}/resolve`)} className="rounded-[var(--r-pill)] border border-red-500/40 bg-transparent py-3 text-sm font-semibold text-red-300">Close Case</button>
       </div>
 

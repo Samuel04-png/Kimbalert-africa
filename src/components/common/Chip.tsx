@@ -35,13 +35,19 @@ export default function Chip({
     ? `transition-[var(--transition-fast)] active:scale-95 ${selected ? 'ring-2 ring-brand-orange/25' : ''}`
     : '';
 
+  const classes = `inline-block rounded-[var(--r-pill)] border font-semibold tracking-wide text-center ${variantClass[variant]} ${sizeClass[size]} ${interactiveClass}`;
+
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={classes}>
+        {children}
+      </button>
+    );
+  }
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-[var(--r-pill)] border font-semibold tracking-wide ${variantClass[variant]} ${sizeClass[size]} ${interactiveClass}`}
-    >
+    <span className={classes}>
       {children}
-    </button>
+    </span>
   );
 }

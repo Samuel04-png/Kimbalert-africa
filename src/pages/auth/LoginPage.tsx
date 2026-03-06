@@ -92,35 +92,42 @@ export default function LoginPage() {
         const userId = user.uid;
 
         // Check admin first, then guardian — auto-routes to correct dashboard
-        const adminDoc = await getDoc(doc(db, 'admins', userId));
-        if (adminDoc.exists()) {
-          setCurrentUser(adminDoc.data() as typeof admins[number]);
-          pushToast('success', 'Welcome back, Commander');
-          navigate('/admin/dashboard');
-        } else {
-          const guardianDoc = await getDoc(doc(db, 'guardians', userId));
-          if (guardianDoc.exists()) {
-            setCurrentUser(guardianDoc.data() as typeof guardians[number]);
-          } else {
-            // First-time email user — create guardian profile
-            const fallbackGuardian = {
-              id: user.uid,
-              role: 'guardian' as const,
-              fullName: user.displayName || 'Guardian User',
-              phone: user.phoneNumber || '',
-              phoneNormalized: normalizePhoneForAuth(user.phoneNumber || ''),
-              email: user.email || identifier,
-              location: 'South Africa',
-              joinedAt: new Date().toISOString(),
-              childrenCount: 0,
-              verified: true,
-            };
-            await setDoc(doc(db, 'guardians', user.uid), fallbackGuardian, { merge: true });
-            setCurrentUser(fallbackGuardian);
+        try {
+          const adminDoc = await getDoc(doc(db, 'admins', userId));
+          console.log("Login: Admin doc check:", adminDoc.exists(), adminDoc.data());
+          if (adminDoc.exists()) {
+            setCurrentUser(adminDoc.data() as typeof admins[number]);
+            pushToast('success', 'Welcome back, Commander');
+            navigate('/admin/dashboard');
+            return;
           }
-          pushToast('success', 'Welcome back');
-          navigate('/guardian/home');
+        } catch (adminLoginErr) {
+          console.error("Login: Failed to read admin doc:", adminLoginErr);
         }
+
+        const guardianDoc = await getDoc(doc(db, 'guardians', userId));
+        console.log("Login: Guardian doc check:", guardianDoc.exists(), guardianDoc.data());
+        if (guardianDoc.exists()) {
+          setCurrentUser(guardianDoc.data() as typeof guardians[number]);
+        } else {
+          // First-time email user — create guardian profile
+          const fallbackGuardian = {
+            id: user.uid,
+            role: 'guardian' as const,
+            fullName: user.displayName || 'Guardian User',
+            phone: user.phoneNumber || '',
+            phoneNormalized: normalizePhoneForAuth(user.phoneNumber || ''),
+            email: user.email || identifier,
+            location: 'South Africa',
+            joinedAt: new Date().toISOString(),
+            childrenCount: 0,
+            verified: true,
+          };
+          await setDoc(doc(db, 'guardians', user.uid), fallbackGuardian, { merge: true });
+          setCurrentUser(fallbackGuardian);
+        }
+        pushToast('success', 'Welcome back');
+        navigate('/guardian/home');
         return;
       }
 

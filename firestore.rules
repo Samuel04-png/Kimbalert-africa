@@ -31,9 +31,10 @@ service cloud.firestore {
     }
 
     match /admins/{adminId} {
-      allow read: if isSelf(adminId) || isAdmin();
-      // Admin documents are managed by secure backend/console workflows.
-      allow create, update, delete: if false;
+      allow read: if true;
+      allow update: if isSelf(adminId) || isAdmin();
+      // Admin creation/deletion is managed by secure backend/console workflows.
+      allow create, delete: if false;
     }
 
     match /children/{childId} {

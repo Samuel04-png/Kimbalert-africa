@@ -10,7 +10,7 @@ const distanceFilters = [5, 10, 20, 999] as const;
 
 export default function ActivityFeedPage() {
   const navigate = useNavigate();
-  const { currentUser, communityAlerts, reports, addTip, pushToast } = useAppContext();
+  const { currentUser, communityAlerts, reports, children, addTip, pushToast } = useAppContext();
   const [tab, setTab] = useState<'community' | 'mine'>('community');
   const [distance, setDistance] = useState<(typeof distanceFilters)[number]>(999);
   const [refreshing, setRefreshing] = useState(false);
@@ -144,7 +144,25 @@ export default function ActivityFeedPage() {
                     <button
                       type="button"
                       onClick={() => {
-                        navigator.clipboard.writeText(`KimbAlert community alert: ${alert.firstName} near ${alert.location}.`);
+                        const alertReport = reports.find(r => r.id === alert.reportId);
+                        const alertChild = children.find(c => c.id === alertReport?.childId);
+
+                        let shareText = `⚠️ KimbAlert Community Alert: Missing Child\n\n`;
+                        shareText += `Name: ${alert.firstName}\n`;
+                        shareText += `Age: ${alert.age}\n`;
+                        shareText += `Last Seen: ${alert.location}\n`;
+
+                        if (alertChild?.physicalDescription) {
+                          shareText += `Distinctive Features: ${alertChild.physicalDescription}\n`;
+                        }
+
+                        if (alertChild?.qrLinked) {
+                          shareText += `Wearing KimbAlert Tracking Device: Yes\n`;
+                        }
+
+                        shareText += `\nPlease keep an eye out and report any sightings!`;
+
+                        navigator.clipboard.writeText(shareText);
                         pushToast('success', 'Alert share text copied');
                       }}
                       className="rounded-[var(--r-pill)] border border-slate-300 bg-white py-2 text-xs font-semibold text-text-main"
