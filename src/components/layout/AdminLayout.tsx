@@ -6,22 +6,7 @@ import ToastHost from '../common/ToastHost';
 import { auth, isFirebaseConfigured } from '../../lib/firebase';
 import { useTranslation } from 'react-i18next';
 
-const LanguageSwitcher = () => {
-  const { i18n } = useTranslation();
-  return (
-    <div className="absolute top-4 right-4 z-50">
-      <select
-        value={i18n.language}
-        onChange={(e) => i18n.changeLanguage(e.target.value)}
-        className="bg-slate-800 text-slate-200 border border-slate-700 rounded-md px-3 py-1.5 text-xs shadow-sm outline-none focus:ring-1 focus:ring-brand-orange cursor-pointer"
-      >
-        <option value="en">EN</option>
-        <option value="fr">FR</option>
-        <option value="sw">SW</option>
-      </select>
-    </div>
-  );
-};
+
 
 const hiddenSidebarPatterns = ['/admin/alerts/:id/resolve', '/admin/alerts/:id/tip/:tipId'];
 
@@ -51,7 +36,6 @@ export default function AdminLayout() {
 
   return (
     <div className="admin-app min-h-screen bg-[#0b1220] text-slate-200 relative">
-      <LanguageSwitcher />
       <div className="mx-auto flex min-h-screen max-w-[1440px]">
         {!hideSidebar ? (
           <aside className="hidden w-64 shrink-0 border-r border-slate-700 bg-[#101827] p-4 md:block">

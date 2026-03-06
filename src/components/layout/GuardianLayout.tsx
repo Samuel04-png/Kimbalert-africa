@@ -7,22 +7,7 @@ import ToastHost from '../common/ToastHost';
 import { auth, isFirebaseConfigured } from '../../lib/firebase';
 import { useTranslation } from 'react-i18next';
 
-const LanguageSwitcher = () => {
-  const { i18n } = useTranslation();
-  return (
-    <div className="fixed top-4 right-4 z-50">
-      <select
-        value={i18n.language}
-        onChange={(e) => i18n.changeLanguage(e.target.value)}
-        className="bg-white/80 backdrop-blur-md text-brand-orange border border-brand-orange/20 rounded-full px-3 py-1.5 text-xs font-bold shadow-sm outline-none focus:ring-2 focus:ring-brand-orange/50 appearance-none cursor-pointer"
-      >
-        <option value="en">EN</option>
-        <option value="fr">FR</option>
-        <option value="sw">SW</option>
-      </select>
-    </div>
-  );
-};
+
 
 const hiddenNavPatterns = [
   '/guardian/children/add',
@@ -71,7 +56,6 @@ export default function GuardianLayout() {
       <div className="guardian-app">
         {mobileAllowed ? (
           <>
-            <LanguageSwitcher />
             <div className="screen screen-content bg-[radial-gradient(circle_at_8%_4%,#fff8f2,transparent_36%),radial-gradient(circle_at_92%_96%,#ffeada,transparent_34%)] px-4 pb-28 pt-3">
               <Outlet />
             </div>

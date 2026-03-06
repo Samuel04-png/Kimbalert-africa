@@ -5,6 +5,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useAppContext } from '../../app/AppContext';
 import { storage, isFirebaseConfigured } from '../../lib/firebase';
 import ToggleSwitch from '../../components/common/ToggleSwitch';
+import { useTranslation } from 'react-i18next';
 
 export default function EditProfilePage() {
   const navigate = useNavigate();
@@ -15,13 +16,14 @@ export default function EditProfilePage() {
   const [saving, setSaving] = useState(false);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState(currentUser.avatarUrl || '');
+  const { i18n } = useTranslation();
   const [form, setForm] = useState({
     fullName: currentUser.fullName,
     phone: currentUser.phone,
     email: currentUser.email,
     location: currentUser.location || '',
     avatarUrl: currentUser.avatarUrl || '',
-    language: parsedPrefs?.language || 'English',
+    language: parsedPrefs?.language || i18n.language || 'en',
   });
 
   const save = async (event: React.FormEvent) => {
@@ -52,6 +54,7 @@ export default function EditProfilePage() {
           biometric,
         }),
       );
+      i18n.changeLanguage(form.language);
       pushToast('success', 'Profile updated');
       navigate('/guardian/profile');
     } catch (error) {
@@ -113,11 +116,9 @@ export default function EditProfilePage() {
             onChange={(event) => setForm((prev) => ({ ...prev, language: event.target.value }))}
             className="w-full rounded-[var(--r-sm)] border border-slate-200 bg-bg-primary px-3 py-2.5 text-sm"
           >
-            <option>English</option>
-            <option>French</option>
-            <option>Swahili</option>
-            <option>Yoruba</option>
-            <option>Zulu</option>
+            <option value="en">English</option>
+            <option value="fr">French</option>
+            <option value="sw">Swahili</option>
           </select>
         </label>
 

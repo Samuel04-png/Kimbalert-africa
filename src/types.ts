@@ -285,3 +285,13 @@ export interface AppContextState {
   updateCurrentUserProfile: (updates: Partial<GuardianUser | AdminUser>) => void;
   signOutUser: () => Promise<void>;
 }
+
+export interface AlertMessage {
+  id: string;
+  reportId: string;
+  senderId: string;
+  senderRole: 'admin' | 'guardian';
+  senderName: string;
+  text: string;
+  createdAt: string;
+}

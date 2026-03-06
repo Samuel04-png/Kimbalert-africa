@@ -4,6 +4,7 @@ import { useAppContext } from '../../app/AppContext';
 import ToggleSwitch from '../../components/common/ToggleSwitch';
 import Watermark from '../../components/common/Watermark';
 import { runAdminOperation } from '../../services/adminOpsService';
+import { useTranslation } from 'react-i18next';
 
 export default function AdminSettingsPage() {
   const {
@@ -26,6 +27,7 @@ export default function AdminSettingsPage() {
     color: systemConfig.branding.color,
   });
   const [inviteEmail, setInviteEmail] = useState('');
+  const { i18n } = useTranslation();
 
   useEffect(() => {
     setDefaultRadius(String(systemConfig.defaultRadiusKm));
@@ -217,6 +219,24 @@ export default function AdminSettingsPage() {
       </section>
 
       <section className="mt-3 rounded-[var(--r-lg)] border border-slate-700 bg-[#111a2b] p-4">
+        <h2 className="font-display text-2xl font-bold">Language Preferences</h2>
+        <div className="mt-2">
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-semibold text-slate-200">System Language</span>
+            <select
+              value={i18n.language}
+              onChange={(e) => i18n.changeLanguage(e.target.value)}
+              className="w-full sm:w-1/2 rounded-[var(--r-sm)] border border-slate-700 bg-[#0f1625] px-3 py-2.5 text-sm"
+            >
+              <option value="en">English</option>
+              <option value="fr">French</option>
+              <option value="sw">Swahili</option>
+            </select>
+          </label>
+        </div>
+      </section>
+
+      <section className="mt-3 rounded-[var(--r-lg)] border border-slate-700 bg-[#111a2b] p-4">
         <h2 className="font-display text-2xl font-bold">Gateway Status</h2>
         <div className="mt-2 space-y-2">
           <div className="flex items-center justify-between rounded-[var(--r-sm)] border border-slate-700 bg-[#0f1625] px-3 py-2">
@@ -270,7 +290,7 @@ export default function AdminSettingsPage() {
             placeholder="Invite admin by email"
             className="rounded-[var(--r-sm)] border border-slate-700 bg-[#0f1625] px-3 py-2 text-sm"
           />
-        <button type="button" onClick={inviteAdmin} className="rounded-[var(--r-pill)] bg-brand-orange px-4 py-2 text-xs font-bold text-white">
+          <button type="button" onClick={inviteAdmin} className="rounded-[var(--r-pill)] bg-brand-orange px-4 py-2 text-xs font-bold text-white">
             <Plus className="mr-1 inline h-3.5 w-3.5" /> Invite
           </button>
         </div>
