@@ -26,6 +26,21 @@
 
 <body class="antialiased text-slate-900 bg-slate-50 selection:bg-teal-500/30">
   <div id="root"></div>
+  <!-- GitHub Pages SPA redirect restore: reads the ?/ query from 404.html and restores the real path -->
+  <script>
+    (function () {
+      var redirect = sessionStorage.redirect;
+      delete sessionStorage.redirect;
+      // Handle the 404.html ?/ redirect pattern
+      var q = window.location.search;
+      if (q.length > 2 && q.indexOf('?/') === 0) {
+        var decoded = q.slice(2).split('&').map(function (s) { return s.replace(/~and~/g, '&'); }).join('?');
+        window.history.replaceState(null, null,
+          window.location.pathname.slice(0, -1) + decoded + window.location.hash
+        );
+      }
+    })();
+  </script>
 </body>
 
 </html>
