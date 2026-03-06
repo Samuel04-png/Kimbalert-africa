@@ -80,6 +80,7 @@ export interface ChildProfile {
   vaultScore: number;
   lastUpdated: string;
   createdAt: string;
+  documents?: { name: string; url: string }[];
 }
 
 export interface TimelineEvent {

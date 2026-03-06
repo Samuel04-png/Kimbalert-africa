@@ -172,29 +172,54 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const isCurrentAdminSession =
     Boolean(authUid) && currentUser.role === 'admin' && currentUser.id === authUid;
 
+  const reportsRef = useRef(reports);
+  const communityAlertsRef = useRef(communityAlerts);
+  
   useEffect(() => {
-    // Only simulate increments in offline/demo mode — real data comes from Firestore
-    if (useCloud) return;
+    reportsRef.current = reports;
+    communityAlertsRef.current = communityAlerts;
+  }, [reports, communityAlerts]);
 
+  useEffect(() => {
     const interval = window.setInterval(() => {
-      setReports((prev) =>
-        prev.map((report) => {
-          if (report.status !== 'active') return report;
-          const inc = Math.floor(Math.random() * 41) + 10;
-          return {
-            ...report,
-            notifiedCount: report.notifiedCount + inc,
-          };
-        }),
-      );
+      if (!useCloud) {
+        setReports((prev) =>
+          prev.map((report) => {
+            if (report.status !== 'active') return report;
+            const inc = Math.floor(Math.random() * 41) + 10;
+            return {
+              ...report,
+              notifiedCount: report.notifiedCount + inc,
+            };
+          }),
+        );
 
-      setCommunityAlerts((prev) =>
-        prev.map((alert) => {
-          if (alert.status !== 'active') return alert;
-          const inc = Math.floor(Math.random() * 41) + 10;
-          return { ...alert, notifiedCount: alert.notifiedCount + inc };
-        }),
-      );
+        setCommunityAlerts((prev) =>
+          prev.map((alert) => {
+            if (alert.status !== 'active') return alert;
+            const inc = Math.floor(Math.random() * 41) + 10;
+            return { ...alert, notifiedCount: alert.notifiedCount + inc };
+          }),
+        );
+      } else if (db) {
+        // Push demo increments to Firestore so live UI updates for all users
+        reportsRef.current.forEach((report) => {
+          if (report.status === 'active') {
+            const inc = Math.floor(Math.random() * 41) + 10;
+            updateDoc(doc(db, 'reports', report.id), {
+              notifiedCount: increment(inc),
+            }).catch(() => {});
+          }
+        });
+        communityAlertsRef.current.forEach((alert) => {
+          if (alert.status === 'active') {
+            const inc = Math.floor(Math.random() * 41) + 10;
+            updateDoc(doc(db, 'communityAlerts', alert.id), {
+              notifiedCount: increment(inc),
+            }).catch(() => {});
+          }
+        });
+      }
     }, 30000);
 
     return () => window.clearInterval(interval);

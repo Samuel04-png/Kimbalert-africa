@@ -13,6 +13,13 @@ export default function QrBraceletPage() {
   const [selectedChildId, setSelectedChildId] = useState(startId ?? '');
   const [scanMode, setScanMode] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [orderOpen, setOrderOpen] = useState(false);
+  const [orderForm, setOrderForm] = useState({
+    name: currentUser.fullName || '',
+    phone: currentUser.phone || '',
+    address: '',
+    quantity: 1,
+  });
   const scannerRef = useRef<Html5QrcodeScanner | null>(null);
 
   const mine = useMemo(() => children.filter((child) => child.guardianId === currentUser.id), [children, currentUser.id]);
@@ -85,6 +92,18 @@ export default function QrBraceletPage() {
     pushToast('success', 'QR bracelet image prepared for download');
   };
 
+  const submitOrder = () => {
+    if (!orderForm.address.trim()) {
+      pushToast('error', 'Please provide a delivery address');
+      return;
+    }
+    const text = `*New Bracelet Order*\nChild: ${child.name}\nBracelet ID: ${child.qrBraceletId}\nGuardian: ${orderForm.name}\nPhone: ${orderForm.phone}\nQuantity: ${orderForm.quantity}\nDelivery Address: ${orderForm.address}`;
+    const url = `https://wa.me/260760580949?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+    setOrderOpen(false);
+    pushToast('success', 'Redirecting to WhatsApp to complete your order.');
+  };
+
   return (
     <div className="guardian-screen animate-page-in pb-4">
       <header className="flex flex-col gap-4 mb-4">
@@ -143,7 +162,7 @@ export default function QrBraceletPage() {
 
       <div className="grid grid-cols-2 gap-3 mb-6">
         <button onClick={downloadImage} className="rounded-[var(--r-pill)] border border-slate-300 bg-white py-2.5 text-xs font-semibold text-text-main"><Download className="mr-1 inline h-3.5 w-3.5" /> Download</button>
-        <button onClick={() => pushToast('info', 'Physical bracelet ordering coming soon')} className="rounded-[var(--r-pill)] border border-brand-orange/25 bg-brand-orange-light py-2.5 text-xs font-semibold text-brand-orange">Order Physical Tag</button>
+        <button onClick={() => setOrderOpen(true)} className="rounded-[var(--r-pill)] border border-brand-orange/25 bg-brand-orange-light py-2.5 text-xs font-semibold text-brand-orange">Order Physical Tag</button>
       </div>
 
       <section className="guardian-card p-4 mb-4">
@@ -165,6 +184,31 @@ export default function QrBraceletPage() {
           <button onClick={() => pushToast('success', 'QR link copied')} className="w-full rounded-[var(--r-sm)] border border-slate-200 bg-white px-3 py-3 text-left font-medium text-text-main hover:bg-slate-50 transition-colors">Copy link</button>
           <button onClick={() => pushToast('success', 'QR sent to emergency contacts')} className="w-full rounded-[var(--r-sm)] border border-slate-200 bg-white px-3 py-3 text-left font-medium text-text-main hover:bg-slate-50 transition-colors">Share to emergency contacts</button>
           <button onClick={() => pushToast('info', 'QR shared to WhatsApp')} className="w-full rounded-[var(--r-sm)] border border-slate-200 bg-white px-3 py-3 text-left font-medium text-text-main hover:bg-slate-50 transition-colors">Share to WhatsApp</button>
+        </div>
+      </BottomSheet>
+
+      <BottomSheet open={orderOpen} onClose={() => setOrderOpen(false)} title="Order Physical Bracelet" snap="70">
+        <div className="space-y-3 p-2 text-sm text-text-main">
+          <p className="text-text-muted">Fill out your delivery details to order a durable, waterproof physical bracelet linked to {child.name}'s profile. You will be redirected to WhatsApp to complete payment and arrange delivery.</p>
+          <label className="block">
+            <span className="mb-1.5 block font-semibold">Guardian Name</span>
+            <input value={orderForm.name} onChange={(e) => setOrderForm(prev => ({...prev, name: e.target.value}))} className="w-full rounded-[var(--r-sm)] border border-slate-200 bg-bg-primary px-3 py-2" />
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block font-semibold">Contact Phone</span>
+            <input value={orderForm.phone} onChange={(e) => setOrderForm(prev => ({...prev, phone: e.target.value}))} className="w-full rounded-[var(--r-sm)] border border-slate-200 bg-bg-primary px-3 py-2" />
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block font-semibold">Delivery Address</span>
+            <textarea rows={2} value={orderForm.address} onChange={(e) => setOrderForm(prev => ({...prev, address: e.target.value}))} placeholder="Full street address..." className="w-full rounded-[var(--r-sm)] border border-slate-200 bg-bg-primary px-3 py-2" />
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block font-semibold">Quantity</span>
+            <input type="number" min="1" value={orderForm.quantity} onChange={(e) => setOrderForm(prev => ({...prev, quantity: parseInt(e.target.value) || 1}))} className="w-full rounded-[var(--r-sm)] border border-slate-200 bg-bg-primary px-3 py-2" />
+          </label>
+          <button onClick={submitOrder} className="mt-2 w-full rounded-[var(--r-pill)] bg-brand-orange py-3 font-bold text-white shadow-orange">
+            Proceed via WhatsApp
+          </button>
         </div>
       </BottomSheet>
     </div>

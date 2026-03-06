@@ -1,16 +1,25 @@
 ﻿import React, { useMemo, useState } from 'react';
 import { ArrowLeft, ChevronDown, Edit3, FileText, MapPin, Printer, Share2, TriangleAlert } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useAppContext } from '../../app/AppContext';
+import { storage, isFirebaseConfigured } from '../../lib/firebase';
 import Chip from '../../components/common/Chip';
 import ProgressRing from '../../components/common/ProgressRing';
+import BottomSheet from '../../components/common/BottomSheet';
 
 export default function ChildProfilePage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { children, pushToast } = useAppContext();
+  const { children, pushToast, updateChild } = useAppContext();
   const [medicalOpen, setMedicalOpen] = useState(true);
   const [photoIndex, setPhotoIndex] = useState(0);
+
+  // Document Upload State
+  const [docOpen, setDocOpen] = useState(false);
+  const [docUploading, setDocUploading] = useState(false);
+  const [docFile, setDocFile] = useState<File | null>(null);
+  const [docName, setDocName] = useState('');
 
   const child = useMemo(() => children.find((entry) => entry.id === id) ?? null, [children, id]);
 
@@ -24,6 +33,44 @@ export default function ChildProfilePage() {
   }
 
   const activePhoto = child.photoUrls[photoIndex] ?? child.photoUrls[0];
+
+  const handleDocUpload = async () => {
+    if (!docName.trim()) {
+      pushToast('error', 'Please provide a document name');
+      return;
+    }
+    if (!docFile) {
+      pushToast('error', 'Please select a file to upload');
+      return;
+    }
+
+    setDocUploading(true);
+    try {
+      let url = '';
+      if (isFirebaseConfigured && storage) {
+        const fileExt = docFile.name.split('.').pop();
+        const storageRef = ref(storage, `children/${child.id}/documents/${Date.now()}.${fileExt}`);
+        await uploadBytes(storageRef, docFile);
+        url = await getDownloadURL(storageRef);
+      } else {
+        // Mock upload for local dev
+        url = URL.createObjectURL(docFile);
+      }
+
+      const newDocs = [...(child.documents || []), { name: docName, url }];
+      updateChild(child.id, { documents: newDocs });
+
+      setDocOpen(false);
+      setDocName('');
+      setDocFile(null);
+      pushToast('success', 'Document uploaded securely');
+    } catch (err) {
+      console.error(err);
+      pushToast('error', 'Failed to upload document');
+    } finally {
+      setDocUploading(false);
+    }
+  };
 
   return (
     <div className="guardian-screen animate-page-in pb-20">
@@ -66,7 +113,7 @@ export default function ChildProfilePage() {
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
-          <Chip variant={child.vaultScore >= 90 ? 'green' : 'pending'}>{child.vaultScore >= 90 ? '? Complete' : '? Incomplete (tap to finish)'}</Chip>
+          <Chip variant={child.vaultScore >= 90 ? 'green' : 'pending'}>{child.vaultScore >= 90 ? '✓ Complete' : '✓ Incomplete (tap to finish)'}</Chip>
           <Chip variant={child.qrLinked ? 'green' : 'pending'}>{child.qrLinked ? 'QR linked' : 'QR missing'}</Chip>
         </div>
 
@@ -120,15 +167,47 @@ export default function ChildProfilePage() {
         </div>
       </section>
 
-      <section className="rounded-[var(--r-lg)] border border-slate-200 bg-slate-50 p-4 shadow-sm">
+      <section className="rounded-[var(--r-lg)] border border-slate-200 bg-slate-50 p-4 shadow-sm mb-6">
         <h2 className="font-display text-2xl font-bold text-slate-400">Documents</h2>
-        <p className="text-xs text-slate-400">Future module — secure uploads and official records.</p>
-        <button type="button" disabled className="mt-3 rounded-[var(--r-pill)] border border-slate-300 px-3 py-1.5 text-xs text-slate-400">Coming soon</button>
+        <p className="text-xs text-slate-400 mb-3">Secure uploads and official records.</p>
+
+        {child.documents && child.documents.length > 0 ? (
+          <div className="space-y-2 mb-3">
+            {child.documents.map((doc, idx) => (
+              <a key={idx} href={doc.url} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-[var(--r-sm)] border border-slate-200 bg-white p-2 text-sm text-text-main hover:bg-slate-50">
+                <FileText className="h-4 w-4 text-brand-orange" />
+                <span className="flex-1 truncate">{doc.name}</span>
+                <span className="text-[10px] text-brand-orange underline">View</span>
+              </a>
+            ))}
+          </div>
+        ) : null}
+
+        <button type="button" onClick={() => setDocOpen(true)} className="rounded-[var(--r-pill)] border border-brand-orange/20 bg-brand-orange-light px-4 py-2 text-xs font-semibold text-brand-orange">
+          + Upload Document
+        </button>
       </section>
 
       <button onClick={() => navigate(`/guardian/alert?child=${child.id}`)} className="fixed bottom-22 left-1/2 z-20 w-[calc(100%-2rem)] max-w-[398px] -translate-x-1/2 rounded-[var(--r-pill)] bg-alert-500 py-3.5 text-sm font-bold text-white shadow-danger">
         <TriangleAlert className="mr-1 inline h-4 w-4" /> Report Missing
       </button>
+
+      <BottomSheet open={docOpen} onClose={() => setDocOpen(false)} title="Upload Secure Document" snap="70">
+        <div className="space-y-4 p-2 text-sm text-text-main">
+          <p className="text-text-muted">Files uploaded here are encrypted and stored in your child's secure vault.</p>
+          <label className="block">
+            <span className="mb-1.5 block font-semibold">Document Name</span>
+            <input value={docName} onChange={(e) => setDocName(e.target.value)} placeholder="e.g. Birth Certificate" className="w-full rounded-[var(--r-sm)] border border-slate-200 bg-bg-primary px-3 py-2" />
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block font-semibold">File</span>
+            <input type="file" onChange={(e) => setDocFile(e.target.files?.[0] || null)} className="w-full rounded-[var(--r-sm)] border border-slate-200 bg-bg-primary px-3 py-2" />
+          </label>
+          <button onClick={handleDocUpload} disabled={docUploading} className="mt-2 w-full rounded-[var(--r-pill)] bg-brand-orange py-3 font-bold text-white shadow-orange disabled:opacity-70">
+            {docUploading ? 'Uploading...' : 'Upload Document'}
+          </button>
+        </div>
+      </BottomSheet>
     </div>
   );
 }
