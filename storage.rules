@@ -1,9 +1,5 @@
 rules_version = '2';
 
-// Craft rules based on the specific structures:
-// - children headers: /children/{childId}/{fileName}
-// - guardian avatars: /guardians/{userId}/{fileName}
-
 service firebase.storage {
   match /b/{bucket}/o {
     
@@ -11,31 +7,14 @@ service firebase.storage {
       return request.auth != null;
     }
     
-    function userId() {
-      return request.auth.uid;
-    }
-
-    // Admins have full access
-    function isAdmin() {
-      return signedIn() && firestore.exists(/databases/(default)/documents/admins/$(userId()));
-    }
-    
-    // Check if the user is the owning guardian
-    function isGuardianOwner(guardianId) {
-      return signedIn() && guardianId == userId();
-    }
-
     match /children/{childId}/{fileName} {
       allow read: if signedIn();
-      // Only the guardian who created the child profile can upload photos, or admin
-      allow write: if isAdmin() || signedIn(); 
-      // Ideal rule would check the child document, but for simplicity of upload:
-      // A signed-in guardian can upload child photos.
+      allow write: if signedIn(); 
     }
 
     match /guardians/{guardianId}/{fileName} {
       allow read: if signedIn();
-      allow write: if isAdmin() || isGuardianOwner(guardianId);
+      allow write: if signedIn();
     }
     
     match /{allPaths=**} {
