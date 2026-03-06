@@ -6,10 +6,10 @@
     <title>KimbAlert Africa</title>
     <script>
         // GitHub Pages SPA redirect workaround.
-        // When a user navigates directly to a sub-route (e.g. /Kimbalert-africa/dashboard),
+        // When a user navigates directly to a sub-route (e.g. /scan/KA-2026-AM-001),
         // GitHub Pages returns 404. This script captures the path and redirects to the
         // app root with the route encoded as a query parameter, which index.html then restores.
-        var pathSegmentsToKeep = 1; // keep '/Kimbalert-africa'
+        var pathSegmentsToKeep = 0; // custom domain — no repo sub-path
         var l = window.location;
         l.replace(
             l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
