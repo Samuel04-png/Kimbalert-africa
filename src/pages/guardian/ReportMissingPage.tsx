@@ -1,12 +1,22 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, BrainCircuit, LocateFixed, Mic } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
+import L from 'leaflet';
 import { useAppContext } from '../../app/AppContext';
 import BottomSheet from '../../components/common/BottomSheet';
 import Chip from '../../components/common/Chip';
 import FlarePulse from '../../components/common/FlarePulse';
 import StepIndicator from '../../components/common/StepIndicator';
 import { generateIncidentSummary } from '../../services/aiService';
+
+// Fix leaflet default icon issue in Vite
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+});
 
 const outfits = ['School Uniform', 'Casual', 'Sports', 'Traditional', 'Unknown'];
 const severities = [
@@ -15,11 +25,35 @@ const severities = [
   { key: 'serious', label: 'Serious Concern (2h+)', priority: 'critical' as const, radius: 20 },
 ];
 
+function LocationSelector({ lat, lng, onChange }: { lat: number; lng: number; onChange: (lat: number, lng: number, address: string) => void }) {
+  const map = useMap();
+
+  useEffect(() => {
+    map.setView([lat, lng], map.getZoom(), { animate: true });
+  }, [lat, lng, map]);
+
+  useMapEvents({
+    click(e) {
+      const { lat: newLat, lng: newLng } = e.latlng;
+      // Reverse Geocode snippet using free Nominatim API
+      fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${newLat}&lon=${newLng}&zoom=18&addressdetails=1`)
+        .then(res => res.json())
+        .then(data => {
+          const address = data?.display_name || `GPS: ${newLat.toFixed(4)}, ${newLng.toFixed(4)}`;
+          onChange(newLat, newLng, address);
+        })
+        .catch(() => onChange(newLat, newLng, `GPS: ${newLat.toFixed(4)}, ${newLng.toFixed(4)}`));
+    },
+  });
+
+  return <Marker position={[lat, lng]} />;
+}
+
 export default function ReportMissingPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const childQuery = params.get('child');
-  const { currentUser, children, addReport } = useAppContext();
+  const { currentUser, children, addReport, pushToast } = useAppContext();
   const [step, setStep] = useState(1);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -31,7 +65,7 @@ export default function ReportMissingPage() {
 
   const [form, setForm] = useState({
     childId: childQuery && mine.some((child) => child.id === childQuery) ? childQuery : mine[0]?.id ?? '',
-    address: '',
+    address: 'Johannesburg, South Africa',
     lat: -26.2041,
     lng: 28.0473,
     when: '',
@@ -67,14 +101,35 @@ export default function ReportMissingPage() {
   const back = () => setStep((prev) => Math.max(prev - 1, 1));
 
   const setCurrentLocation = () => {
-    if (!navigator.geolocation) return;
+    if (!navigator.geolocation) {
+      pushToast('error', 'Geolocation not available');
+      return;
+    }
+    pushToast('info', 'Getting location...');
     navigator.geolocation.getCurrentPosition((position) => {
-      setForm((prev) => ({
-        ...prev,
-        lat: position.coords.latitude,
-        lng: position.coords.longitude,
-        address: `GPS: ${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}`,
-      }));
+      const lat = position.coords.latitude;
+      const lng = position.coords.longitude;
+      fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`)
+        .then(res => res.json())
+        .then(data => {
+          setForm((prev) => ({
+            ...prev,
+            lat,
+            lng,
+            address: data?.display_name || `GPS: ${lat.toFixed(4)}, ${lng.toFixed(4)}`,
+          }));
+          pushToast('success', 'Location acquired');
+        })
+        .catch(() => {
+          setForm((prev) => ({
+            ...prev,
+            lat,
+            lng,
+            address: `GPS: ${lat.toFixed(4)}, ${lng.toFixed(4)}`,
+          }));
+        });
+    }, (error) => {
+      pushToast('error', 'Location error', error.message);
     });
   };
 
@@ -204,9 +259,25 @@ export default function ReportMissingPage() {
             />
           </label>
           {errors.address ? <p className="text-xs text-red-500">{errors.address}</p> : null}
-          <div className="h-36 rounded-[var(--r-md)] border border-slate-200 bg-[radial-gradient(circle_at_20%_20%,#ffe8d9,transparent_30%),#fff] relative overflow-hidden">
-            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-[var(--r-pill)] bg-red-500 px-2 py-1 text-[10px] font-bold text-white">Map pin drop</span>
+          <div className="h-48 rounded-[var(--r-md)] border border-slate-200 relative overflow-hidden z-0">
+            <MapContainer
+              center={[form.lat, form.lng]}
+              zoom={14}
+              scrollWheelZoom={true}
+              className="h-full w-full z-0 cursor-crosshair"
+            >
+              <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+              <LocationSelector
+                lat={form.lat}
+                lng={form.lng}
+                onChange={(lat, lng, address) => setForm(prev => ({ ...prev, lat, lng, address }))}
+              />
+            </MapContainer>
           </div>
+          <p className="text-[11px] text-text-muted text-center mt-1">Tap map to drop pin</p>
           <button type="button" onClick={setCurrentLocation} className="rounded-[var(--r-pill)] border border-brand-orange/20 bg-brand-orange-light px-3 py-1.5 text-xs font-semibold text-brand-orange">
             <LocateFixed className="mr-1 inline h-3.5 w-3.5" /> Auto detect location
           </button>
@@ -305,9 +376,9 @@ export default function ReportMissingPage() {
 
       <BottomSheet open={confirmOpen} onClose={() => setConfirmOpen(false)} title="Confirm Alert Broadcast" snap="40">
         <div className="space-y-3 text-sm text-text-muted">
-            <p className="rounded-[var(--r-md)] border border-red-500/30 bg-red-50 px-3 py-2 text-red-600 font-semibold">
-              Warning: This will notify authorities and nearby citizens.
-            </p>
+          <p className="rounded-[var(--r-md)] border border-red-500/30 bg-red-50 px-3 py-2 text-red-600 font-semibold">
+            Warning: This will notify authorities and nearby citizens.
+          </p>
           <p>Initial radius: {selectedSeverity.radius}km. Expansion: +5km per hour.</p>
           <div className="grid grid-cols-2 gap-2">
             <button type="button" onClick={() => setConfirmOpen(false)} className="rounded-[var(--r-pill)] border border-slate-300 bg-white py-2.5 text-sm font-semibold text-text-main">Cancel</button>
