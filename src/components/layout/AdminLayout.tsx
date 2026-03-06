@@ -1,5 +1,5 @@
 import React from 'react';
-import { Activity, AlertTriangle, BarChart3, Bell, Home, Settings, Shield, Users } from 'lucide-react';
+import { Activity, AlertTriangle, BarChart3, Bell, Home, Settings, Shield, Users, Package } from 'lucide-react';
 import { Navigate, NavLink, Outlet, matchPath, useLocation } from 'react-router-dom';
 import { useAppContext } from '../../app/AppContext';
 import ToastHost from '../common/ToastHost';
@@ -61,10 +61,11 @@ export default function AdminLayout() {
 
       {!hideSidebar ? (
         <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-700 bg-[#101827]/95 px-3 pb-4 pt-2 backdrop-blur md:hidden">
-          <div className="grid grid-cols-5 gap-1">
+          <div className="grid grid-cols-6 gap-1">
             <MobileTab to="/admin/dashboard" icon={<Home className="h-4.5 w-4.5" />} label="Dash" />
             <MobileTab to="/admin/alerts" icon={<AlertTriangle className="h-4.5 w-4.5" />} label="Alerts" />
             <MobileTab to="/admin/registry" icon={<Users className="h-4.5 w-4.5" />} label="Registry" />
+            <MobileTab to="/admin/orders" icon={<Package className="h-4.5 w-4.5" />} label="Orders" />
             <MobileTab to="/admin/analytics" icon={<BarChart3 className="h-4.5 w-4.5" />} label="Analytics" />
             <MobileTab to="/admin/settings" icon={<Settings className="h-4.5 w-4.5" />} label="Settings" />
           </div>
@@ -84,6 +85,7 @@ function AdminNav() {
       <SideLink to="/admin/registry" icon={<Users className="h-4.5 w-4.5" />} label="Registry" />
       <SideLink to="/admin/partners" icon={<Shield className="h-4.5 w-4.5" />} label="Partners" />
       <SideLink to="/admin/analytics" icon={<BarChart3 className="h-4.5 w-4.5" />} label="Analytics" />
+      <SideLink to="/admin/orders" icon={<Package className="h-4.5 w-4.5" />} label="Bracelet Orders" />
       <SideLink to="/admin/notifications" icon={<Bell className="h-4.5 w-4.5" />} label="Notifications" />
       <SideLink to="/admin/settings" icon={<Settings className="h-4.5 w-4.5" />} label="Settings" />
     </div>

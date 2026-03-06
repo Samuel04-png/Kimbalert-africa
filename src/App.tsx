@@ -43,6 +43,7 @@ import PartnersPage from './pages/admin/PartnersPage';
 import AnalyticsPage from './pages/admin/AnalyticsPage';
 import AdminSettingsPage from './pages/admin/AdminSettingsPage';
 import AdminNotificationsPage from './pages/admin/AdminNotificationsPage';
+import AdminOrdersPage from './pages/admin/AdminOrdersPage';
 
 import NotFoundPage from './pages/utility/NotFoundPage';
 import OfflinePage from './pages/utility/OfflinePage';
@@ -93,6 +94,7 @@ export default function App() {
           <Route path="analytics" element={<AnalyticsPage />} />
           <Route path="settings" element={<AdminSettingsPage />} />
           <Route path="notifications" element={<AdminNotificationsPage />} />
+          <Route path="orders" element={<AdminOrdersPage />} />
         </Route>
 
         <Route path="/404" element={<NotFoundPage />} />

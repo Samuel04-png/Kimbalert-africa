@@ -240,6 +240,19 @@ export interface AdminActionLog {
   meta?: Record<string, string | number | boolean | null>;
 }
 
+export interface BraceletOrder {
+  id: string;
+  guardianId: string;
+  childId: string;
+  guardianName: string;
+  phone: string;
+  address: string;
+  quantity: number;
+  status: 'pending' | 'shipped' | 'delivered';
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface AppContextState {
   currentUser: GuardianUser | AdminUser;
   guardians: GuardianUser[];
@@ -256,6 +269,7 @@ export interface AppContextState {
   adminInvites: AdminInvite[];
   adminActions: AdminActionLog[];
   toasts: ToastMessage[];
+  orders: BraceletOrder[];
   addChild: (child: Omit<ChildProfile, 'id' | 'createdAt' | 'lastUpdated' | 'age'>) => string;
   updateChild: (id: string, updates: Partial<ChildProfile>) => void;
   deleteChild: (id: string) => void;
@@ -280,6 +294,8 @@ export interface AppContextState {
     summary?: string,
     meta?: Record<string, string | number | boolean | null>,
   ) => string;
+  addOrder: (order: Omit<BraceletOrder, 'id' | 'createdAt' | 'updatedAt' | 'status'>) => Promise<void>;
+  updateOrderStatus: (id: string, status: BraceletOrder['status']) => Promise<void>;
   pushToast: (type: NotificationType, title: string, message?: string) => void;
   dismissToast: (id: string) => void;
   setCurrentUser: (user: GuardianUser | AdminUser) => void;

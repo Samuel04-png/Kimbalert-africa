@@ -34,6 +34,7 @@ import {
   ResourceContact,
   SystemConfig,
   ToastMessage,
+  BraceletOrder,
 } from '../types';
 import {
   adminsSeed,
@@ -159,6 +160,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [adminInvites, setAdminInvites] = useState<AdminInvite[]>([]);
   const [adminActions, setAdminActions] = useState<AdminActionLog[]>([]);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [orders, setOrders] = useState<BraceletOrder[]>([]);
   const [currentUser, setCurrentUserState] = useState<GuardianUser | AdminUser>(
     isFirebaseConfigured ? emptyGuardianPlaceholder : guardiansSeed[0],
   );
@@ -174,56 +176,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const reportsRef = useRef(reports);
   const communityAlertsRef = useRef(communityAlerts);
-  
+
   useEffect(() => {
     reportsRef.current = reports;
     communityAlertsRef.current = communityAlerts;
   }, [reports, communityAlerts]);
-
-  useEffect(() => {
-    const interval = window.setInterval(() => {
-      if (!useCloud) {
-        setReports((prev) =>
-          prev.map((report) => {
-            if (report.status !== 'active') return report;
-            const inc = Math.floor(Math.random() * 41) + 10;
-            return {
-              ...report,
-              notifiedCount: report.notifiedCount + inc,
-            };
-          }),
-        );
-
-        setCommunityAlerts((prev) =>
-          prev.map((alert) => {
-            if (alert.status !== 'active') return alert;
-            const inc = Math.floor(Math.random() * 41) + 10;
-            return { ...alert, notifiedCount: alert.notifiedCount + inc };
-          }),
-        );
-      } else if (db) {
-        // Push demo increments to Firestore so live UI updates for all users
-        reportsRef.current.forEach((report) => {
-          if (report.status === 'active') {
-            const inc = Math.floor(Math.random() * 41) + 10;
-            updateDoc(doc(db, 'reports', report.id), {
-              notifiedCount: increment(inc),
-            }).catch(() => {});
-          }
-        });
-        communityAlertsRef.current.forEach((alert) => {
-          if (alert.status === 'active') {
-            const inc = Math.floor(Math.random() * 41) + 10;
-            updateDoc(doc(db, 'communityAlerts', alert.id), {
-              notifiedCount: increment(inc),
-            }).catch(() => {});
-          }
-        });
-      }
-    }, 30000);
-
-    return () => window.clearInterval(interval);
-  }, [useCloud]);
 
   useEffect(() => {
     setGuardians((prev) =>
@@ -367,6 +324,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           query(collection(db, 'adminActions'), orderBy('createdAt', 'desc'), limit(100)),
           (snapshot) => setAdminActions(mapSnapshot<AdminActionLog>(snapshot)),
           logError('adminActions'),
+        ),
+      );
+      unsubscribers.push(
+        onSnapshot(
+          query(collection(db, 'braceletOrders'), orderBy('createdAt', 'desc')),
+          (snapshot) => setOrders(mapSnapshot<BraceletOrder>(snapshot)),
+          logError('braceletOrders'),
         ),
       );
     } else {
@@ -1125,6 +1089,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const addOrder: AppContextState['addOrder'] = async (order) => {
+    const id = `order-${Date.now()}`;
+    const newOrder: BraceletOrder = {
+      ...order,
+      id,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      status: 'pending',
+    };
+
+    setOrders((prev) => [newOrder, ...prev]);
+    if (useCloud && db) {
+      await setDoc(doc(db, 'braceletOrders', id), newOrder);
+    }
+  };
+
+  const updateOrderStatus: AppContextState['updateOrderStatus'] = async (id, status) => {
+    setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status, updatedAt: new Date().toISOString() } : o)));
+    if (useCloud && db) {
+      await updateDoc(doc(db, 'braceletOrders', id), {
+        status,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+  };
+
   const signOutUser: AppContextState['signOutUser'] = async () => {
     if (useCloud && auth) {
       await signOut(auth);
@@ -1144,6 +1134,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setTips([]);
       setAdminInvites([]);
       setAdminActions([]);
+      setOrders([]);
     }
     localStorage.removeItem('pending_phone');
     localStorage.removeItem('pending_role');
@@ -1167,6 +1158,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       adminInvites,
       adminActions,
       toasts,
+      orders,
       addChild,
       updateChild,
       deleteChild,
@@ -1185,6 +1177,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       saveSystemConfig,
       createAdminInvite,
       logAdminAction,
+      addOrder,
+      updateOrderStatus,
       pushToast,
       dismissToast,
       setCurrentUser,
@@ -1207,6 +1201,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       adminInvites,
       adminActions,
       toasts,
+      orders,
     ],
   );
 

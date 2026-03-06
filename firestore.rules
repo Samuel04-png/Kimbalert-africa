@@ -101,6 +101,13 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    match /braceletOrders/{orderId} {
+      allow read: if isAdmin() || (signedIn() && resource.data.guardianId == userId());
+      allow create: if signedIn() && request.resource.data.guardianId == userId();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

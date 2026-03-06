@@ -7,7 +7,7 @@ service firebase.storage {
       return request.auth != null;
     }
     
-    match /children/{childId}/{fileName} {
+    match /children/{childId}/{allPaths=**} {
       allow read: if signedIn();
       allow write: if signedIn(); 
     }

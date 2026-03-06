@@ -9,7 +9,7 @@ import BottomSheet from '../../components/common/BottomSheet';
 export default function QrBraceletPage() {
   const [params] = useSearchParams();
   const startId = params.get('child');
-  const { currentUser, children, pushToast } = useAppContext();
+  const { currentUser, children, pushToast, addOrder } = useAppContext();
   const [selectedChildId, setSelectedChildId] = useState(startId ?? '');
   const [scanMode, setScanMode] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
@@ -92,16 +92,23 @@ export default function QrBraceletPage() {
     pushToast('success', 'QR bracelet image prepared for download');
   };
 
-  const submitOrder = () => {
+  const submitOrder = async () => {
     if (!orderForm.address.trim()) {
       pushToast('error', 'Please provide a delivery address');
       return;
     }
-    const text = `*New Bracelet Order*\nChild: ${child.name}\nBracelet ID: ${child.qrBraceletId}\nGuardian: ${orderForm.name}\nPhone: ${orderForm.phone}\nQuantity: ${orderForm.quantity}\nDelivery Address: ${orderForm.address}`;
-    const url = `https://wa.me/260760580949?text=${encodeURIComponent(text)}`;
-    window.open(url, '_blank');
+
+    await addOrder({
+      guardianId: currentUser.id,
+      childId: child.id,
+      guardianName: orderForm.name,
+      phone: orderForm.phone,
+      address: orderForm.address,
+      quantity: orderForm.quantity,
+    });
+
     setOrderOpen(false);
-    pushToast('success', 'Redirecting to WhatsApp to complete your order.');
+    pushToast('success', 'Order submitted to the Command Center.');
   };
 
   return (
@@ -189,25 +196,25 @@ export default function QrBraceletPage() {
 
       <BottomSheet open={orderOpen} onClose={() => setOrderOpen(false)} title="Order Physical Bracelet" snap="70">
         <div className="space-y-3 p-2 text-sm text-text-main">
-          <p className="text-text-muted">Fill out your delivery details to order a durable, waterproof physical bracelet linked to {child.name}'s profile. You will be redirected to WhatsApp to complete payment and arrange delivery.</p>
+          <p className="text-text-muted">Fill out your delivery details to order a durable, waterproof physical bracelet linked to {child.name}'s profile. Your order will be sent to our Command Center for processing.</p>
           <label className="block">
             <span className="mb-1.5 block font-semibold">Guardian Name</span>
-            <input value={orderForm.name} onChange={(e) => setOrderForm(prev => ({...prev, name: e.target.value}))} className="w-full rounded-[var(--r-sm)] border border-slate-200 bg-bg-primary px-3 py-2" />
+            <input value={orderForm.name} onChange={(e) => setOrderForm(prev => ({ ...prev, name: e.target.value }))} className="w-full rounded-[var(--r-sm)] border border-slate-200 bg-bg-primary px-3 py-2" />
           </label>
           <label className="block">
             <span className="mb-1.5 block font-semibold">Contact Phone</span>
-            <input value={orderForm.phone} onChange={(e) => setOrderForm(prev => ({...prev, phone: e.target.value}))} className="w-full rounded-[var(--r-sm)] border border-slate-200 bg-bg-primary px-3 py-2" />
+            <input value={orderForm.phone} onChange={(e) => setOrderForm(prev => ({ ...prev, phone: e.target.value }))} className="w-full rounded-[var(--r-sm)] border border-slate-200 bg-bg-primary px-3 py-2" />
           </label>
           <label className="block">
             <span className="mb-1.5 block font-semibold">Delivery Address</span>
-            <textarea rows={2} value={orderForm.address} onChange={(e) => setOrderForm(prev => ({...prev, address: e.target.value}))} placeholder="Full street address..." className="w-full rounded-[var(--r-sm)] border border-slate-200 bg-bg-primary px-3 py-2" />
+            <textarea rows={2} value={orderForm.address} onChange={(e) => setOrderForm(prev => ({ ...prev, address: e.target.value }))} placeholder="Full street address..." className="w-full rounded-[var(--r-sm)] border border-slate-200 bg-bg-primary px-3 py-2" />
           </label>
           <label className="block">
             <span className="mb-1.5 block font-semibold">Quantity</span>
-            <input type="number" min="1" value={orderForm.quantity} onChange={(e) => setOrderForm(prev => ({...prev, quantity: parseInt(e.target.value) || 1}))} className="w-full rounded-[var(--r-sm)] border border-slate-200 bg-bg-primary px-3 py-2" />
+            <input type="number" min="1" value={orderForm.quantity} onChange={(e) => setOrderForm(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))} className="w-full rounded-[var(--r-sm)] border border-slate-200 bg-bg-primary px-3 py-2" />
           </label>
-          <button onClick={submitOrder} className="mt-2 w-full rounded-[var(--r-pill)] bg-brand-orange py-3 font-bold text-white shadow-orange">
-            Proceed via WhatsApp
+          <button onClick={() => void submitOrder()} className="mt-2 w-full rounded-[var(--r-pill)] bg-brand-orange py-3 font-bold text-white shadow-orange">
+            Submit Order
           </button>
         </div>
       </BottomSheet>
